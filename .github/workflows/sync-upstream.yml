@@ -29,7 +29,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
           # 添加上游仓库（请将下方 URL 替换为实际上游仓库地址）
-          UPSTREAM_REPO="https://github.com/UPSTREAM_OWNER/cursor2api.git"
+          UPSTREAM_REPO="https://github.com/7836246/cursor2api.git"
           git remote add upstream "$UPSTREAM_REPO" || true
           git fetch upstream
 
