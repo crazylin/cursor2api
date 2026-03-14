@@ -27,7 +27,8 @@ RUN addgroup --system --gid 1001 nodejs && \
 
 # 拷贝包配置并仅安装生产环境依赖（极大减小镜像体积）
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev \
+# 使用 npm install 替代 npm ci，避免 QEMU 模拟 arm64 时 exit code 132 问题
+RUN npm install --omit=dev --ignore-scripts \
     && npm cache clean --force
 
 # 从 builder 阶段拷贝编译后的产物
