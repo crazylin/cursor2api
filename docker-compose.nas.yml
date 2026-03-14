@@ -11,6 +11,7 @@ services:
   cursor2api:
     # 直接拉取 Docker Hub 镜像，无需本地编译
     image: crazylin/cursor2api:latest
+    # pull_policy: never   # 取消注释则使用本地已有镜像，不检查更新（网络受限时使用）
     container_name: cursor2api
     restart: unless-stopped
 
