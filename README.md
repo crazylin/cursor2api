@@ -2,6 +2,7 @@
 
 将 Cursor 文档页免费 AI 对话接口代理转换为 **Anthropic Messages API** 和 **OpenAI Chat Completions API**，支持 **Claude Code** 和 **Cursor IDE** 使用。
 
+> 📊 **社区反馈稳定性排名**：`v2.5.6` > `v2.6.2` > `v2.6.3`，建议根据自身使用场景选择版本测试。
 ## 原理
 
 ```
