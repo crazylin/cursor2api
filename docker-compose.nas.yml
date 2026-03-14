@@ -1,0 +1,60 @@
+# ==================================================
+# Cursor2API — 飞牛 NAS 部署配置
+# 使用方法:
+#   1. 将本文件和 config.yaml 上传到 NAS 同一目录
+#   2. 按需修改下方环境变量
+#   3. 在飞牛 NAS Docker 管理界面导入，或 SSH 执行:
+#      docker compose -f docker-compose.nas.yml up -d
+# ==================================================
+
+services:
+  cursor2api:
+    # 直接拉取 Docker Hub 镜像，无需本地编译
+    image: crazylin/cursor2api:latest
+    container_name: cursor2api
+    restart: unless-stopped
+
+    ports:
+      # 格式: "宿主机端口:容器端口"
+      # 如果 3010 端口被占用，将左边改为其他端口，如 "3011:3010"
+      - "3010:3010"
+
+    volumes:
+      # 将 NAS 上的 config.yaml 挂载到容器内（只读）
+      - /vol1/1000/Docker/cursor2api/config.yaml:/app/config.yaml:ro
+
+    environment:
+      - NODE_ENV=production
+      - PORT=3010
+      - TIMEOUT=120
+
+      # ── 代理设置 ──
+      # 飞牛 NAS 在国内访问 Cursor API 可能需要代理
+      # 取消注释并填入你的代理地址（支持 http/socks5）
+      # 如果路由器已全局代理，则无需配置
+      # - PROXY=http://192.168.1.x:7890
+
+      # ── 可选：覆盖 config.yaml 中的模型 ──
+      # - CURSOR_MODEL=anthropic/claude-sonnet-4.6
+
+    # 健康检查：确保服务正常运行
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3010/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+    # 资源限制（按 NAS 实际配置调整）
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 128M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
