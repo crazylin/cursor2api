@@ -721,7 +721,17 @@ async function handleStream(res: Response, cursorReq: CursorChatRequest, body: A
         const originalMessages = [...activeCursorReq.messages];
         let truncationTier = 0;
 
-        while (hasTools && isTruncated(fullResponse) && truncationTier < 4) {
+        // ★ 已有完整工具调用时跳过 Tier 恢复
+        // 场景：模型输出了多个工具调用，最后一个被截断
+        // isTruncated() 会因反引号不配对而返回 true，但前面的工具调用都是完整的
+        // parseToolCalls 本身能处理截断的最后一个块（tolerantParse 兜底）
+        // 进入 Tier 循环只会浪费 4 次 API 调用且每次还是会截断
+        const hasCompleteToolBlock = /```json\s+action[\s\S]+?```/.test(fullResponse);
+        if (hasCompleteToolBlock && isTruncated(fullResponse)) {
+            console.log(`[Handler] 响应截断但已有完整工具调用块，跳过 Tier 恢复（parseToolCalls 会处理截断部分）`);
+        }
+
+        while (hasTools && isTruncated(fullResponse) && !hasCompleteToolBlock && truncationTier < 4) {
             truncationTier++;
 
             if (truncationTier <= 2) {
