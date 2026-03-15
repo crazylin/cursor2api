@@ -413,7 +413,8 @@ async function handleOpenAIStream(
 
         // ★ Thinking 提取：OpenAI 流式模式下提取 <thinking> 块并作为 reasoning_content 发送
         const config = getConfig();
-        if (config.enableThinking && fullResponse.includes('<thinking>')) {
+        const thinkingEnabled = anthropicReq.thinking?.type === 'enabled' || (anthropicReq.thinking?.type !== 'disabled' && !!config.enableThinking);
+        if (thinkingEnabled && fullResponse.includes('<thinking>')) {
             const extracted = extractThinking(fullResponse);
             if (extracted.thinkingBlocks.length > 0) {
                 const reasoningContent = extracted.thinkingBlocks.map(b => b.thinking).join('\n\n');
@@ -597,7 +598,8 @@ async function handleOpenAINonStream(
 
     // ★ Thinking 提取：OpenAI 非流式模式下提取 <thinking> 块
     const config = getConfig();
-    if (config.enableThinking && fullText.includes('<thinking>')) {
+    const thinkingEnabled = anthropicReq.thinking?.type === 'enabled' || (anthropicReq.thinking?.type !== 'disabled' && !!config.enableThinking);
+    if (thinkingEnabled && fullText.includes('<thinking>')) {
         const extracted = extractThinking(fullText);
         if (extracted.thinkingBlocks.length > 0) {
             reasoningContent = extracted.thinkingBlocks.map(b => b.thinking).join('\n\n');

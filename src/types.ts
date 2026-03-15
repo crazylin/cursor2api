@@ -8,6 +8,7 @@ export interface AnthropicRequest {
     system?: string | AnthropicContentBlock[];
     tools?: AnthropicTool[];
     tool_choice?: AnthropicToolChoice;
+    thinking?: { type: 'enabled' | 'disabled'; budget_tokens?: number };
     temperature?: number;
     top_p?: number;
     stop_sequences?: string[];
