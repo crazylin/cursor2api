@@ -26,18 +26,6 @@ import { getVisionProxyFetchOptions } from './proxy-agent.js';
 
 // ==================== 工具指令构建 ====================
 
-// 已知工具名 — 无需额外描述（模型已从 few-shot 和训练中了解）
-const WELL_KNOWN_TOOLS = new Set([
-    'Read', 'read_file', 'ReadFile',
-    'Write', 'write_file', 'WriteFile', 'write_to_file',
-    'Edit', 'edit_file', 'EditFile', 'replace_in_file',
-    'Bash', 'execute_command', 'RunCommand', 'run_command',
-    'ListDir', 'list_dir', 'list_files',
-    'Search', 'search_files', 'grep_search', 'codebase_search',
-    'attempt_completion', 'ask_followup_question',
-    'AskFollowupQuestion', 'AttemptCompletion',
-]);
-
 /**
  * 将 JSON Schema 压缩为紧凑的类型签名
  * 目的：90 个工具的完整 JSON Schema 约 135,000 chars，压缩后约 15,000 chars
@@ -88,9 +76,7 @@ function buildToolInstructions(
     const toolList = tools.map((tool) => {
         // ★ 使用紧凑 Schema 替代完整 JSON Schema 以大幅减小输入体积
         const schema = tool.input_schema ? compactSchema(tool.input_schema) : '{}';
-        // ★ 已知工具跳过描述（模型已经知道它们做什么），减少 ~30% 输入
-        const isKnown = WELL_KNOWN_TOOLS.has(tool.name);
-        const desc = isKnown ? '' : (tool.description || '').substring(0, 50);
+        const desc = (tool.description || '').substring(0, 50);
         // Markdown 文档格式：更自然，不像 API spec
         const paramStr = schema ? `\n  Params: {${schema}}` : '';
         return desc ? `- **${tool.name}**: ${desc}${paramStr}` : `- **${tool.name}**${paramStr}`;

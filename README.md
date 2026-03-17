@@ -31,7 +31,6 @@
 - **🆕 Thinking 支持** - 客户端驱动，Anthropic `thinking` block + OpenAI `reasoning_content`，模型名含 `thinking` 或传 `reasoning_effort` 即启用
 - **🆕 response_format 支持** - `json_object` / `json_schema` 格式输出，自动剥离 markdown 包装
 - **🆕 动态工具结果预算** - 根据上下文大小自动调整工具结果截断限制，替代固定 15K
-- **🆕 已知工具跳过描述** - 17 个常用工具不生成冗余描述，节省 ~30% 工具指令输入
 - **🆕 Vision 独立代理** - 图片 API 单独走代理，Cursor API 保持直连不受影响
 - **🆕 计费头清除** - 自动清除 `x-anthropic-billing-header` 防止注入警告
 - **工具参数自动修复** - 字段名映射 (`file_path` → `path`)、智能引号替换、模糊匹配修复
