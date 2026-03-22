@@ -81,6 +81,8 @@ function parseYamlConfig(defaults: AppConfig): { config: AppConfig; raw: Record<
                 dir: yaml.logging.dir || './logs',
                 max_days: typeof yaml.logging.max_days === 'number' ? yaml.logging.max_days : 7,
                 persist_mode: persistModes.includes(yaml.logging.persist_mode) ? yaml.logging.persist_mode : 'summary',
+                db_enabled: yaml.logging.db_enabled === true,
+                db_path: yaml.logging.db_path || './logs/cursor2api.db',
             };
         }
         // ★ 工具处理配置
@@ -143,20 +145,28 @@ function applyEnvOverrides(cfg: AppConfig): void {
     }
     // Logging 环境变量覆盖
     if (process.env.LOG_FILE_ENABLED !== undefined) {
-        if (!cfg.logging) cfg.logging = { file_enabled: false, dir: './logs', max_days: 7, persist_mode: 'summary' };
+        if (!cfg.logging) cfg.logging = { file_enabled: false, dir: './logs', max_days: 7, persist_mode: 'summary', db_enabled: false, db_path: './logs/cursor2api.db' };
         cfg.logging.file_enabled = process.env.LOG_FILE_ENABLED === 'true' || process.env.LOG_FILE_ENABLED === '1';
     }
     if (process.env.LOG_DIR) {
-        if (!cfg.logging) cfg.logging = { file_enabled: false, dir: './logs', max_days: 7, persist_mode: 'summary' };
+        if (!cfg.logging) cfg.logging = { file_enabled: false, dir: './logs', max_days: 7, persist_mode: 'summary', db_enabled: false, db_path: './logs/cursor2api.db' };
         cfg.logging.dir = process.env.LOG_DIR;
     }
     if (process.env.LOG_PERSIST_MODE) {
-        if (!cfg.logging) cfg.logging = { file_enabled: false, dir: './logs', max_days: 7, persist_mode: 'summary' };
+        if (!cfg.logging) cfg.logging = { file_enabled: false, dir: './logs', max_days: 7, persist_mode: 'summary', db_enabled: false, db_path: './logs/cursor2api.db' };
         cfg.logging.persist_mode = process.env.LOG_PERSIST_MODE === 'full'
             ? 'full'
             : process.env.LOG_PERSIST_MODE === 'summary'
                 ? 'summary'
                 : 'compact';
+    }
+    if (process.env.LOG_DB_ENABLED !== undefined) {
+        if (!cfg.logging) cfg.logging = { file_enabled: false, dir: './logs', max_days: 7, persist_mode: 'summary', db_enabled: false, db_path: './logs/cursor2api.db' };
+        cfg.logging.db_enabled = process.env.LOG_DB_ENABLED === 'true' || process.env.LOG_DB_ENABLED === '1';
+    }
+    if (process.env.LOG_DB_PATH) {
+        if (!cfg.logging) cfg.logging = { file_enabled: false, dir: './logs', max_days: 7, persist_mode: 'summary', db_enabled: false, db_path: './logs/cursor2api.db' };
+        cfg.logging.db_path = process.env.LOG_DB_PATH;
     }
     // 工具透传模式环境变量覆盖
     if (process.env.TOOLS_PASSTHROUGH !== undefined) {

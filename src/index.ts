@@ -11,9 +11,10 @@ import express from 'express';
 import { getConfig, initConfigWatcher, stopConfigWatcher } from './config.js';
 import { handleMessages, listModels, countTokens } from './handler.js';
 import { handleOpenAIChatCompletions, handleOpenAIResponses } from './openai-handler.js';
-import { serveLogViewer, apiGetLogs, apiGetRequests, apiGetStats, apiGetPayload, apiLogsStream, serveLogViewerLogin, apiClearLogs, serveVueApp } from './log-viewer.js';
+import { serveLogViewer, apiGetLogs, apiGetRequests, apiGetStats, apiGetPayload, apiLogsStream, serveLogViewerLogin, apiClearLogs, serveVueApp, apiGetRequestsMore } from './log-viewer.js';
 import { apiGetConfig, apiSaveConfig } from './config-api.js';
 import { loadLogsFromFiles } from './logger.js';
+import { initDb } from './logger-db.js';
 
 // 从 package.json 读取版本号，统一来源，避免多处硬编码
 const require = createRequire(import.meta.url);
@@ -68,6 +69,7 @@ app.get('/logs', logViewerAuth, serveLogViewer);
 // Vue3 日志 UI（无服务端鉴权，由 Vue 应用内部处理）
 app.get('/vuelogs', serveVueApp);
 app.get('/api/logs', logViewerAuth, apiGetLogs);
+app.get('/api/requests/more', logViewerAuth, apiGetRequestsMore);
 app.get('/api/requests', logViewerAuth, apiGetRequests);
 app.get('/api/stats', logViewerAuth, apiGetStats);
 app.get('/api/payload/:requestId', logViewerAuth, apiGetPayload);
@@ -151,14 +153,20 @@ app.get('/', (_req, res) => {
 
 // ==================== 启动 ====================
 
+// ★ 初始化 SQLite（若启用）
+if (config.logging?.db_enabled) {
+    initDb(config.logging.db_path || './logs/cursor2api.db');
+}
+
 // ★ 从日志文件加载历史（必须在 listen 之前）
 loadLogsFromFiles();
 
 app.listen(config.port, () => {
     const auth = config.authTokens?.length ? `${config.authTokens.length} token(s)` : 'open';
-    const logPersist = config.logging?.file_enabled
-        ? `file(${config.logging.persist_mode || 'summary'}) → ${config.logging.dir}`
-        : 'memory only';
+    const logParts: string[] = [];
+    if (config.logging?.file_enabled) logParts.push(`file(${config.logging.persist_mode || 'summary'}) → ${config.logging.dir}`);
+    if (config.logging?.db_enabled) logParts.push(`sqlite → ${config.logging.db_path || './logs/cursor2api.db'}`);
+    const logPersist = logParts.length > 0 ? logParts.join(' + ') : 'memory only';
     
     // Tools 配置摘要
     const toolsCfg = config.tools;

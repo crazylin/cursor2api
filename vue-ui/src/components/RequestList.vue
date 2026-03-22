@@ -76,6 +76,12 @@
         <div v-if="req.error" class="rerr">{{ req.error }}</div>
       </div>
     </div>
+    <!-- 加载更多（仅 SQLite 模式下有数据时显示） -->
+    <div v-if="logsStore.hasMore" class="load-more">
+      <button class="lm-btn" :disabled="logsStore.loadingMore" @click="logsStore.loadMoreRequests()">
+        {{ logsStore.loadingMore ? '加载中...' : `加载更多（已显示 ${logsStore.reqs.length} / ${logsStore.total}）` }}
+      </button>
+    </div>
   </div>
 </template>
 
@@ -134,16 +140,7 @@ const statusTabs = [
   { value: 'intercepted' as const, label: '中断' },
 ];
 
-const counts = computed(() => {
-  const base = logsStore.reqs;
-  return {
-    all: base.length,
-    success: base.filter(r => r.status === 'success').length,
-    error: base.filter(r => r.status === 'error').length,
-    processing: base.filter(r => r.status === 'processing').length,
-    intercepted: base.filter(r => r.status === 'intercepted').length,
-  };
-});
+const counts = computed(() => logsStore.statusCounts);
 
 function fmtDate(ts: number): string {
   const d = new Date(ts);
@@ -344,4 +341,8 @@ function selectReq(id: string) {
 @keyframes prog { 0%,100%{opacity:.4} 50%{opacity:1} }
 
 .rerr { color: var(--red); margin-top: 3px; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.load-more { padding: 8px; text-align: center; }
+.lm-btn { width: 100%; padding: 6px 0; font-size: 12px; color: var(--text-muted); background: var(--bg-2); border: 1px solid var(--border-faint); border-radius: 4px; cursor: pointer; }
+.lm-btn:hover:not(:disabled) { background: var(--bg-3); color: var(--text); }
+.lm-btn:disabled { opacity: 0.5; cursor: default; }
 </style>

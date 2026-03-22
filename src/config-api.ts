@@ -30,7 +30,7 @@ export function apiGetConfig(_req: Request, res: Response): void {
         },
         sanitize_response: cfg.sanitizeEnabled,
         refusal_patterns: cfg.refusalPatterns ?? [],
-        logging: cfg.logging ?? { file_enabled: false, dir: './logs', max_days: 7, persist_mode: 'summary' },
+        logging: cfg.logging ?? { file_enabled: false, dir: './logs', max_days: 7, persist_mode: 'summary', db_enabled: false, db_path: './logs/cursor2api.db' },
     });
 }
 

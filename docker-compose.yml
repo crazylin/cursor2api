@@ -41,9 +41,13 @@ services:
       # - MAX_HISTORY_MESSAGES=-1      # 历史消息条数上限，-1=不限制（建议改用 MAX_HISTORY_TOKENS）
       # - MAX_HISTORY_TOKENS=150000     # 历史消息 token 数上限（推荐），默认 150000，参考值 130000~170000（代码自动补偿 Cursor 后端开销）
 
-      # ── 日志持久化 ──
+      # ── 日志持久化（⚠️ 修改后需重启容器生效） ──
+      # 方式一：JSONL 文件（日志量小时使用）
       # - LOG_FILE_ENABLED=true
       # - LOG_DIR=./logs
+      # 方式二：SQLite（推荐，避免大文件 OOM，支持重启后历史查询）
+      # - LOG_DB_ENABLED=true
+      # - LOG_DB_PATH=./logs/cursor2api.db
 
       # ── 浏览器指纹（base64 JSON） ──
       # - FP=eyJ1c2VyQWdlbnQiOiIuLi4ifQ==

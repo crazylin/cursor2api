@@ -74,7 +74,7 @@ export interface HotConfig {
   tools: { schema_mode: 'compact' | 'full' | 'names_only'; description_max_length: number; passthrough?: boolean; disabled?: boolean };
   sanitize_response: boolean;
   refusal_patterns: string[];
-  logging: { file_enabled: boolean; dir: string; max_days: number; persist_mode: 'compact' | 'full' | 'summary' };
+  logging: { file_enabled: boolean; dir: string; max_days: number; persist_mode: 'compact' | 'full' | 'summary'; db_enabled: boolean; db_path: string };
 }
 
 export interface SaveConfigResult {

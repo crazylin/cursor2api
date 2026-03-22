@@ -94,7 +94,16 @@
 
             <!-- 日志 -->
             <Group title="日志持久化（logging）">
-              <Field label="logging.file_enabled" desc="开启后日志会写入文件，重启后自动加载历史记录。默认关闭">
+              <div class="restart-notice">⚠️ 此分组所有配置修改后需重启服务才能生效</div>
+              <Field label="logging.db_enabled" desc="SQLite 持久化（推荐）。启动时仅加载摘要，payload 按需查询，彻底避免大文件 OOM；Vue UI 支持重启后翻页查看完整历史">
+                <Toggle v-model="draft.logging.db_enabled" />
+              </Field>
+              <template v-if="draft.logging.db_enabled">
+                <Field label="logging.db_path" desc="SQLite 文件路径，默认 ./logs/cursor2api.db。Docker 部署请确保 logs 目录已挂载">
+                  <input v-model="draft.logging.db_path" type="text" class="inp inp-wide" />
+                </Field>
+              </template>
+              <Field label="logging.file_enabled" desc="JSONL 文件持久化。日志量大时（>100MB/天）建议改用 SQLite 方式">
                 <Toggle v-model="draft.logging.file_enabled" />
               </Field>
               <template v-if="draft.logging.file_enabled">
@@ -104,7 +113,7 @@
                 <Field label="logging.max_days" desc="超出天数的日志文件自动清理，默认 7 天">
                   <input v-model.number="draft.logging.max_days" type="number" min="1" class="inp" />
                 </Field>
-                <Field label="logging.persist_mode" desc="summary=仅保留问答摘要与少量元数据（默认）；compact=精简调试信息（保留更多排障细节）；full=完整持久化">
+                <Field label="logging.persist_mode" desc="summary=仅保留问答摘要与少量元数据（默认）；compact=精简调试信息（保留更多排障细节）；full=完整持久化（体积最大，慎用）">
                   <SegSelect v-model="draft.logging.persist_mode" :options="[
                     { value: 'summary', label: 'summary' },
                     { value: 'compact', label: 'compact' },
@@ -398,6 +407,11 @@ input[type="text"].inp-wide { width: 200px; }
 .btn-save:not(:disabled):hover { filter: brightness(1.1); }
 
 /* 保存提示 */
+.restart-notice {
+  font-size: 11px; padding: 5px 8px; margin-bottom: 4px;
+  border-radius: 6px; color: var(--yellow);
+  background: color-mix(in srgb, var(--yellow) 10%, transparent);
+}
 .save-msg {
   font-size: 11px; padding: 5px 8px;
   border-radius: 6px; word-break: break-all;

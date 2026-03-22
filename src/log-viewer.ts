@@ -8,7 +8,7 @@ import type { Request, Response } from 'express';
 import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { getAllLogs, getRequestSummaries, getStats, getRequestPayload, subscribeToLogs, subscribeToSummaries, clearAllLogs } from './logger.js';
+import { getAllLogs, getRequestSummaries, getStats, getRequestPayload, subscribeToLogs, subscribeToSummaries, clearAllLogs, getRequestSummariesPage } from './logger.js';
 
 // ==================== 静态文件路径 ====================
 
@@ -50,6 +50,16 @@ export function apiGetPayload(req: Request, res: Response): void {
 export function apiClearLogs(_req: Request, res: Response): void {
     const result = clearAllLogs();
     res.json({ success: true, ...result });
+}
+
+/** GET /api/requests/more?limit=50&before=<ts>&status=error&keyword=foo&since=<ts> - 游标分页 + 后端过滤（仅 Vue UI 使用） */
+export function apiGetRequestsMore(req: Request, res: Response): void {
+    const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+    const before = req.query.before ? parseInt(req.query.before as string) : undefined;
+    const since = req.query.since ? parseInt(req.query.since as string) : undefined;
+    const status = (req.query.status as string) || undefined;
+    const keyword = (req.query.keyword as string) || undefined;
+    res.json(getRequestSummariesPage({ limit, before, since, status, keyword }));
 }
 
 export function apiLogsStream(req: Request, res: Response): void {

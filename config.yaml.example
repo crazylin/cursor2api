@@ -200,10 +200,19 @@ vision:
   # proxy: "http://127.0.0.1:7890"
 
 # ==================== 日志持久化配置（可选） ====================
-# 开启后日志会写入文件，重启后自动加载历史记录
-# 环境变量: LOG_FILE_ENABLED=true|false, LOG_DIR=./logs, LOG_PERSIST_MODE=compact|full|summary
+# 支持两种持久化方式，可单独开启或同时开启（双写）。
+# ⚠️ 以下所有配置项修改后需重启服务才能生效（不支持热重载）
+#
+# 方式一：JSONL 文件（每天一个文件，适合日志量较小的场景）
+#   环境变量: LOG_FILE_ENABLED=true|false, LOG_DIR=./logs, LOG_PERSIST_MODE=compact|full|summary
+#
+# 方式二：SQLite 数据库（推荐，解决大文件 OOM 问题，支持重启后历史查询和分页）
+#   优势：启动时仅加载 summary，payload 按需查询，彻底避免 OOM
+#   优势：Vue UI 支持重启后翻页查看完整历史，搜索/筛选命中全量数据
+#   环境变量: LOG_DB_ENABLED=true|false, LOG_DB_PATH=./logs/cursor2api.db
 logging:
-  # 是否启用日志文件持久化（默认关闭）
+  # 方式一：JSONL 文件持久化（默认关闭）
+  # ⚠️ 单天日志量大时（>100MB）建议改用 SQLite 方式，避免启动 OOM
   file_enabled: false
   # 日志文件存储目录
   dir: "./logs"
@@ -211,6 +220,12 @@ logging:
   max_days: 7
   # 落盘模式:
   #   compact = 精简调试信息（保留更多排障细节）
-  #   full    = 完整持久化
-  #   summary = 仅保留“用户问了什么 / 模型答了什么”与少量元数据（默认）
+  #   full    = 完整持久化（文件体积最大，慎用）
+  #   summary = 仅保留”用户问了什么 / 模型答了什么”与少量元数据（默认）
   persist_mode: summary
+
+  # 方式二：SQLite 数据库持久化（推荐，默认关闭）
+  # ⚠️ 修改 db_enabled 或 db_path 后需重启服务才能生效
+  db_enabled: false
+  # SQLite 文件路径（确保 logs 目录已挂载，Docker 下同 dir 目录）
+  db_path: "./logs/cursor2api.db"

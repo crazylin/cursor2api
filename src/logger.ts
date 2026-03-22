@@ -17,6 +17,7 @@ import { EventEmitter } from 'events';
 import { existsSync, mkdirSync, appendFileSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from 'fs';
 import { join, basename } from 'path';
 import { getConfig } from './config.js';
+import { initDb, dbInsertRequest, dbGetPayload, dbGetSummaries, dbCountSummaries, dbGetSummaryCount, dbGetStatusCounts, dbGetSummariesSince, dbClear } from './logger-db.js';
 
 // ==================== 类型定义 ====================
 
@@ -419,38 +420,83 @@ function compactPayloadForDisk(summary: RequestSummary, payload: RequestPayload)
     return compact;
 }
 
-/** 将已完成的请求写入日志文件 */
+/** 将已完成的请求写入日志文件和/或 SQLite */
 function persistRequest(summary: RequestSummary, payload: RequestPayload): void {
+    // ---- 原有 JSONL 文件方式（保持不变）----
     const filepath = getLogFilePath();
-    if (!filepath) return;
-    try {
-        ensureLogDir();
-        const persistMode = getPersistMode();
-        const persistedPayload = persistMode === 'full'
-            ? payload
-            : persistMode === 'summary'
-                ? buildSummaryPayload(summary, payload)
-                : compactPayloadForDisk(summary, payload);
-        const record = { timestamp: Date.now(), summary, payload: persistedPayload };
-        appendFileSync(filepath, JSON.stringify(record) + '\n', 'utf-8');
-    } catch (e) {
-        console.warn('[Logger] 写入日志文件失败:', e);
+    if (filepath) {
+        try {
+            ensureLogDir();
+            const persistMode = getPersistMode();
+            const persistedPayload = persistMode === 'full'
+                ? payload
+                : persistMode === 'summary'
+                    ? buildSummaryPayload(summary, payload)
+                    : compactPayloadForDisk(summary, payload);
+            const record = { timestamp: Date.now(), summary, payload: persistedPayload };
+            appendFileSync(filepath, JSON.stringify(record) + '\n', 'utf-8');
+        } catch (e) {
+            console.warn('[Logger] 写入日志文件失败:', e);
+        }
+    }
+
+    // ---- 新增 SQLite 方式 ----
+    const cfg = getConfig();
+    if (cfg.logging?.db_enabled) {
+        try {
+            dbInsertRequest(summary, payload);
+        } catch (e) {
+            console.warn('[Logger] 写入 SQLite 失败:', e);
+        }
     }
 }
 
-/** 启动时从日志文件加载历史记录 */
+/** 启动时从日志文件和/或 SQLite 加载历史记录 */
 export function loadLogsFromFiles(): void {
+    const cfg = getConfig();
+
+    // ---- 新增：SQLite 加载（只加载 summary，不加载 payload，彻底避免 OOM）----
+    if (cfg.logging?.db_enabled) {
+        try {
+            const maxDays = cfg.logging?.max_days || 7;
+            const cutoff = Date.now() - maxDays * 86400000;
+            // 初始化 SQLite（若尚未在 index.ts 中初始化则在此兜底）
+            try { initDb(cfg.logging.db_path || './logs/cursor2api.db'); } catch { /* already initialized */ }
+            const summaries = dbGetSummariesSince(cutoff);
+            let dbLoaded = 0;
+            for (const s of summaries) {
+                if (!requestSummaries.has(s.requestId)) {
+                    requestSummaries.set(s.requestId, s as RequestSummary);
+                    // 不预加载 payload，按需查询
+                    requestOrder.push(s.requestId);
+                    dbLoaded++;
+                }
+            }
+            // 裁剪到 MAX_REQUESTS（保留最新的）
+            while (requestOrder.length > MAX_REQUESTS) {
+                const oldId = requestOrder.shift()!;
+                requestSummaries.delete(oldId);
+                requestPayloads.delete(oldId);
+            }
+            if (dbLoaded > 0) {
+                console.log(`[Logger] 从 SQLite 加载了 ${dbLoaded} 条历史摘要（不含 payload）`);
+            }
+        } catch (e) {
+            console.warn('[Logger] 从 SQLite 加载失败:', e);
+        }
+    }
+
+    // ---- 原有 JSONL 文件加载（db_enabled 时跳过读取，避免 OOM；仅清理过期文件）----
     const dir = getLogDir();
     if (!dir || !existsSync(dir)) return;
     try {
-        const cfg = getConfig();
         const maxDays = cfg.logging?.max_days || 7;
         const cutoff = Date.now() - maxDays * 86400000;
-        
+
         const files = readdirSync(dir)
             .filter(f => f.startsWith('cursor2api-') && f.endsWith('.jsonl'))
             .sort(); // 按日期排序
-        
+
         // 清理过期文件
         for (const f of files) {
             const dateStr = f.replace('cursor2api-', '').replace('.jsonl', '');
@@ -460,43 +506,46 @@ export function loadLogsFromFiles(): void {
                 continue;
             }
         }
-        
-        // 加载有效文件（最多最近2个文件）
-        const validFiles = readdirSync(dir)
-            .filter(f => f.startsWith('cursor2api-') && f.endsWith('.jsonl'))
-            .sort()
-            .slice(-2);
-        
-        let loaded = 0;
-        for (const f of validFiles) {
-            const content = readFileSync(join(dir, f), 'utf-8');
-            const lines = content.split('\n').filter(Boolean);
-            for (const line of lines) {
-                try {
-                    const record = JSON.parse(line);
-                    if (record.summary && record.summary.requestId) {
-                        const s = record.summary as RequestSummary;
-                        const p = record.payload as RequestPayload || {};
-                        if (!requestSummaries.has(s.requestId)) {
-                            requestSummaries.set(s.requestId, s);
-                            requestPayloads.set(s.requestId, p);
-                            requestOrder.push(s.requestId);
-                            loaded++;
+
+        // db_enabled 时跳过文件读取（SQLite 已加载 summary，避免 OOM）
+        if (!cfg.logging?.db_enabled) {
+            // 加载有效文件（最多最近2个文件）
+            const validFiles = readdirSync(dir)
+                .filter(f => f.startsWith('cursor2api-') && f.endsWith('.jsonl'))
+                .sort()
+                .slice(-2);
+
+            let loaded = 0;
+            for (const f of validFiles) {
+                const content = readFileSync(join(dir, f), 'utf-8');
+                const lines = content.split('\n').filter(Boolean);
+                for (const line of lines) {
+                    try {
+                        const record = JSON.parse(line);
+                        if (record.summary && record.summary.requestId) {
+                            const s = record.summary as RequestSummary;
+                            const p = record.payload as RequestPayload || {};
+                            if (!requestSummaries.has(s.requestId)) {
+                                requestSummaries.set(s.requestId, s);
+                                requestPayloads.set(s.requestId, p);
+                                requestOrder.push(s.requestId);
+                                loaded++;
+                            }
                         }
-                    }
-                } catch { /* skip malformed lines */ }
+                    } catch { /* skip malformed lines */ }
+                }
             }
-        }
-        
-        // 裁剪到 MAX_REQUESTS
-        while (requestOrder.length > MAX_REQUESTS) {
-            const oldId = requestOrder.shift()!;
-            requestSummaries.delete(oldId);
-            requestPayloads.delete(oldId);
-        }
-        
-        if (loaded > 0) {
-            console.log(`[Logger] 从日志文件加载了 ${loaded} 条历史记录`);
+
+            // 裁剪到 MAX_REQUESTS
+            while (requestOrder.length > MAX_REQUESTS) {
+                const oldId = requestOrder.shift()!;
+                requestSummaries.delete(oldId);
+                requestPayloads.delete(oldId);
+            }
+
+            if (loaded > 0) {
+                console.log(`[Logger] 从日志文件加载了 ${loaded} 条历史记录`);
+            }
         }
     } catch (e) {
         console.warn('[Logger] 加载日志文件失败:', e);
@@ -522,7 +571,13 @@ export function clearAllLogs(): { cleared: number } {
             }
         } catch { /* ignore */ }
     }
-    
+
+    // 清空 SQLite
+    const cfg = getConfig();
+    if (cfg.logging?.db_enabled) {
+        try { dbClear(); } catch { /* ignore */ }
+    }
+
     return { cleared: count };
 }
 
@@ -622,7 +677,81 @@ export function getRequestSummaries(limit?: number): RequestSummary[] {
 
 /** 获取请求的完整 payload 数据 */
 export function getRequestPayload(requestId: string): RequestPayload | undefined {
-    return requestPayloads.get(requestId);
+    // 先查内存
+    const cached = requestPayloads.get(requestId);
+    if (cached) return cached;
+    // 内存无（SQLite 模式下 payload 不预加载）→ 按需查 SQLite
+    const cfg = getConfig();
+    if (cfg.logging?.db_enabled) {
+        try { return dbGetPayload(requestId); } catch { /* ignore */ }
+    }
+    return undefined;
+}
+
+/**
+ * 游标分页查询请求摘要列表（仅 Vue UI 使用）。
+ * 支持 status/keyword/since 后端过滤，before 游标翻页。
+ * 结果按 startTime 倒序（最新在前）。
+ */
+export function getRequestSummariesPage(opts: {
+    limit: number;
+    before?: number;
+    status?: string;
+    keyword?: string;
+    since?: number;
+}): { summaries: RequestSummary[]; hasMore: boolean; total: number; statusCounts: Record<string, number> } {
+    const { limit, before, status, keyword, since } = opts;
+    const cfg = getConfig();
+
+    if (cfg.logging?.db_enabled) {
+        // SQLite 支持完整历史翻页 + 后端过滤
+        try {
+            const summaries = dbGetSummaries({ limit: limit + 1, before, status, keyword, since }) as RequestSummary[];
+            const hasMore = summaries.length > limit;
+            return {
+                summaries: hasMore ? summaries.slice(0, limit) : summaries,
+                hasMore,
+                total: dbCountSummaries({ since, status, keyword }),
+                statusCounts: dbGetStatusCounts({ keyword, since }),
+            };
+        } catch (e) {
+            console.warn('[Logger] SQLite 分页查询失败:', e);
+        }
+    }
+
+    // 降级：从内存 requestOrder 切片（支持基本过滤）
+    // statusCounts 不受 status 过滤影响，单独计算
+    let allUnfiltered = requestOrder.slice().reverse();
+    if (since !== undefined) allUnfiltered = allUnfiltered.filter(id => (requestSummaries.get(id)?.startTime ?? 0) >= since);
+    if (keyword) {
+        const kw = keyword.toLowerCase();
+        allUnfiltered = allUnfiltered.filter(id => {
+            const s = requestSummaries.get(id);
+            return s && (
+                s.requestId.toLowerCase().includes(kw) ||
+                s.model.toLowerCase().includes(kw) ||
+                (s.title ?? '').toLowerCase().includes(kw)
+            );
+        });
+    }
+    const statusCounts: Record<string, number> = { all: allUnfiltered.length, success: 0, error: 0, processing: 0, intercepted: 0 };
+    for (const id of allUnfiltered) {
+        const s = requestSummaries.get(id);
+        if (s?.status) statusCounts[s.status] = (statusCounts[s.status] ?? 0) + 1;
+    }
+
+    let all = status ? allUnfiltered.filter(id => requestSummaries.get(id)?.status === status) : allUnfiltered;
+    const startIdx = before !== undefined
+        ? all.findIndex(id => (requestSummaries.get(id)?.startTime ?? Infinity) < before)
+        : 0;
+    const slice = startIdx >= 0 ? all.slice(startIdx, startIdx + limit + 1) : [];
+    const hasMore = slice.length > limit;
+    return {
+        summaries: slice.slice(0, limit).map(id => requestSummaries.get(id)!).filter(Boolean),
+        hasMore,
+        total: all.length,
+        statusCounts,
+    };
 }
 
 export function subscribeToLogs(listener: (entry: LogEntry) => void): () => void {

@@ -65,6 +65,30 @@ export async function saveConfig(cfg: Partial<HotConfig>): Promise<SaveConfigRes
   return res.json() as Promise<SaveConfigResult>;
 }
 
+export interface RequestsPage {
+  summaries: RequestSummary[];
+  hasMore: boolean;
+  total: number;
+  statusCounts: Record<string, number>;
+}
+
+export interface RequestsFilter {
+  limit?: number;
+  before?: number;
+  status?: string;
+  keyword?: string;
+  since?: number;
+}
+
+export function fetchMoreRequests(filter: RequestsFilter = {}): Promise<RequestsPage> {
+  const q = new URLSearchParams({ limit: String(filter.limit ?? 50) });
+  if (filter.before !== undefined) q.set('before', String(filter.before));
+  if (filter.since !== undefined) q.set('since', String(filter.since));
+  if (filter.status) q.set('status', filter.status);
+  if (filter.keyword) q.set('keyword', filter.keyword);
+  return apiFetch<RequestsPage>(`/api/requests/more?${q.toString()}`);
+}
+
 export function createSSEConnection(onMessage: (event: string, data: unknown) => void): EventSource {
   const token = localStorage.getItem('cursor2api_token');
   const url = token ? `/api/logs/stream?token=${encodeURIComponent(token)}` : '/api/logs/stream';

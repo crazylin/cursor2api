@@ -139,6 +139,8 @@ export interface AppConfig {
         dir: string;               // 日志文件存储目录
         max_days: number;          // 日志保留天数
         persist_mode: 'compact' | 'full' | 'summary'; // 落盘模式: compact=精简, full=完整, summary=仅问答摘要
+        db_enabled: boolean;       // 是否启用 SQLite 存储
+        db_path: string;           // SQLite 文件路径，默认 './logs/cursor2api.db'
     };
     tools?: {
         schemaMode: 'compact' | 'full' | 'names_only';  // Schema 呈现模式
