@@ -19,7 +19,15 @@ let db: InstanceType<typeof Database> | null = null;
 
 // ==================== 初始化 ====================
 
+export function closeDb(): void {
+    if (db) {
+        db.close();
+        db = null;
+    }
+}
+
 export function initDb(dbPath: string): void {
+    closeDb(); // 关闭旧连接（幂等，支持热重载重新初始化）
     const dir = dirname(dbPath);
     if (dir && !existsSync(dir)) {
         mkdirSync(dir, { recursive: true });

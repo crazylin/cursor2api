@@ -16,8 +16,8 @@
 import { EventEmitter } from 'events';
 import { existsSync, mkdirSync, appendFileSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from 'fs';
 import { join, basename } from 'path';
-import { getConfig } from './config.js';
-import { initDb, dbInsertRequest, dbGetPayload, dbGetSummaries, dbCountSummaries, dbGetSummaryCount, dbGetStatusCounts, dbGetSummariesSince, dbClear } from './logger-db.js';
+import { getConfig, onConfigReload } from './config.js';
+import { initDb, closeDb, isDbInitialized, dbInsertRequest, dbGetPayload, dbGetSummaries, dbCountSummaries, dbGetSummaryCount, dbGetStatusCounts, dbGetSummariesSince, dbClear } from './logger-db.js';
 
 // ==================== 类型定义 ====================
 
@@ -551,6 +551,32 @@ export function loadLogsFromFiles(): void {
         console.warn('[Logger] 加载日志文件失败:', e);
     }
 }
+
+// ==================== SQLite 热重载 ====================
+// 注册配置热重载回调，处理 db_enabled / db_path 运行时变更
+onConfigReload((newCfg, changes) => {
+    // 只在 logging 配置变更时处理（避免其他字段变更触发不必要的 DB 重初始化）
+    if (!changes.some(c => c.startsWith('logging'))) return;
+
+    const dbEnabled = newCfg.logging?.db_enabled ?? false;
+    const dbPath = newCfg.logging?.db_path || './logs/cursor2api.db';
+
+    if (dbEnabled) {
+        // 启用或路径变更：重新初始化（initDb 内部会先关闭旧连接）
+        try {
+            initDb(dbPath);
+            console.log(`[Logger] SQLite 热重载：已初始化 ${dbPath}`);
+        } catch (e) {
+            console.warn('[Logger] SQLite 热重载初始化失败:', e);
+        }
+    } else {
+        // 禁用：关闭连接
+        if (isDbInitialized()) {
+            closeDb();
+            console.log('[Logger] SQLite 热重载：已关闭连接');
+        }
+    }
+});
 
 /** 清空所有日志（内存 + 文件） */
 export function clearAllLogs(): { cleared: number } {

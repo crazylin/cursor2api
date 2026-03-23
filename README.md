@@ -92,8 +92,6 @@ cp config.yaml.example config.yaml
 | `tools.disabled` | 🆕 禁用模式：完全不注入工具定义，极致省上下文 | `false` |
 
 > 💡 详细配置说明请参见 `config.yaml.example` 中的注释。
->
-> ⚠️ `logging.*` 所有配置项修改后均需重启服务才能生效（不支持热重载）。
 
 ### 3. 启动
 
@@ -245,8 +243,6 @@ AI 按此格式输出 → 我们解析并转换为标准的 Anthropic `tool_use`
 
 | 环境变量 | 说明 |
 |----------|------|
-> ⚠️ **环境变量优先级高于 `config.yaml`**：若在 docker-compose 等环境中设置了环境变量，该参数的 `config.yaml` 配置会被覆盖，热重载对其**无效**。需要通过 `config.yaml` 动态调整的参数，请勿同时在环境变量中设置。
-
 | `PORT` | 服务端口 |
 | `AUTH_TOKEN` | API 鉴权 token（逗号分隔多个） |
 | `PROXY` | 全局代理地址 |
@@ -264,6 +260,8 @@ AI 按此格式输出 → 我们解析并转换为标准的 Anthropic `tool_use`
 | `SANITIZE_RESPONSE` | 响应内容清洗开关 (`true`/`false`，默认 `false`) |
 | `TOOLS_PASSTHROUGH` | 🆕 工具透传模式 (`true`/`false`，默认 `false`) |
 | `TOOLS_DISABLED` | 🆕 工具禁用模式 (`true`/`false`，默认 `false`) |
+
+> ⚠️ **环境变量优先级高于 `config.yaml`**：若在 docker-compose 等环境中设置了环境变量，该参数的 `config.yaml` 配置会被覆盖，热重载对其**无效**。需要通过 `config.yaml` 动态调整的参数，请勿同时在环境变量中设置。
 
 ## 免责声明 / Disclaimer
 

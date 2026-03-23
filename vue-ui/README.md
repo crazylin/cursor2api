@@ -106,8 +106,6 @@ open http://localhost:3010/vuelogs
 | 日志持久化 | `logging.file_enabled` / `logging.dir` / `logging.persist_mode` | JSONL 文件持久化 |
 | 高级 | `refusal_patterns` | 自定义拒绝检测正则 |
 
-> **注意**：`logging.*` 属于启动时初始化参数，修改后**需重启服务**才能生效；其余配置热重载，下一次请求即生效。
-
 ## 与原有日志页面的关系
 
 | 路由 | 实现 | 鉴权方式 |

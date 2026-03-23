@@ -94,7 +94,6 @@
 
             <!-- 日志 -->
             <Group title="日志持久化（logging）">
-              <div class="restart-notice">⚠️ 此分组所有配置修改后需重启服务才能生效</div>
               <Field label="logging.db_enabled" desc="SQLite 持久化（推荐）。启动时仅加载摘要，payload 按需查询，彻底避免大文件 OOM；Vue UI 支持重启后翻页查看完整历史">
                 <Toggle v-model="draft.logging.db_enabled" />
               </Field>
