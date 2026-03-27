@@ -432,10 +432,11 @@ async function loadReleases() {
   const latest = data[0];
   if (latestEl) latestEl.textContent = latest ? latest.tag : '--';
 
-  // 比较版本
+  // 比较版本（strip v 前缀和 -desktop 后缀）
+  const stripVer = s => s.replace(/^v/, '').replace(/-desktop$/, '');
   const isNewer = (a, b) => {
-    const pa = a.replace(/^v/, '').split('.').map(Number);
-    const pb = b.replace(/^v/, '').split('.').map(Number);
+    const pa = stripVer(a).split('.').map(Number);
+    const pb = stripVer(b).split('.').map(Number);
     for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
       if ((pa[i]||0) > (pb[i]||0)) return true;
       if ((pa[i]||0) < (pb[i]||0)) return false;
@@ -454,7 +455,7 @@ async function loadReleases() {
   data.forEach(rel => {
     const exeAssets = (rel.assets || []).filter(a => a.name.endsWith('.exe'));
     const date = rel.published_at ? rel.published_at.slice(0,10) : '--';
-    const isCurrent = rel.tag === ('v' + _currentVer) || rel.tag === _currentVer;
+    const isCurrent = stripVer(rel.tag) === stripVer(_currentVer);
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td><span class="rel-tag${isCurrent ? ' rel-tag--current' : ''}">${rel.tag}</span>${isCurrent ? ' <span class="badge">当前</span>' : ''}</td>
