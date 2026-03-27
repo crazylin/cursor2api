@@ -21,7 +21,7 @@
       </svg>
       <div class="logo-text">
         <div class="logo-title">Cursor2API</div>
-        <div class="logo-sub">Desktop</div>
+        <div class="logo-sub">v<span id="s-version">--</span></div>
       </div>
     </div>
     <nav>
@@ -62,33 +62,36 @@
         <h2 class="page-title">控制台</h2>
       </div>
       <div class="card">
-          <div class="card-title">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            服务状态
+        <div class="dashboard-top">
+          <div class="dashboard-stats">
+            <div class="card-title">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              服务状态
+            </div>
+            <div class="status-grid">
+              <div class="stat"><div class="stat-label">运行状态</div><div class="stat-value red" id="s-status">检测中...</div></div>
+              <div class="stat"><div class="stat-label">监听端口</div><div class="stat-value blue" id="s-port">3010</div></div>
+              <div class="stat"><div class="stat-label">运行时长</div><div class="stat-value blue" id="s-uptime">--</div></div>
+            </div>
           </div>
-          <div class="status-grid">
-            <div class="stat"><div class="stat-label">运行状态</div><div class="stat-value red" id="s-status">检测中...</div></div>
-            <div class="stat"><div class="stat-label">监听端口</div><div class="stat-value blue" id="s-port">3010</div></div>
-            <div class="stat"><div class="stat-label">运行时长</div><div class="stat-value blue" id="s-uptime">--</div></div>
-            <div class="stat"><div class="stat-label">服务版本</div><div class="stat-value" id="s-version">--</div></div>
+          <div class="dashboard-ctrl">
+            <div class="card-title">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              服务控制
+            </div>
+            <div class="btn-col">
+              <button class="btn btn-green" id="b-start"   onclick="doStart()">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg> 启动
+              </button>
+              <button class="btn btn-red"   id="b-stop"    onclick="doStop()">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="1"/></svg> 停止
+              </button>
+              <button class="btn btn-blue"  id="b-restart" onclick="doRestart()">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg> 重启
+              </button>
+            </div>
           </div>
-      </div>
-      <div class="card">
-          <div class="card-title">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-            服务控制
-          </div>
-          <div class="btn-row">
-            <button class="btn btn-green" id="b-start"   onclick="doStart()">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg> 启动
-            </button>
-            <button class="btn btn-red"   id="b-stop"    onclick="doStop()">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="1"/></svg> 停止
-            </button>
-            <button class="btn btn-blue"  id="b-restart" onclick="doRestart()">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg> 重启
-            </button>
-          </div>
+        </div>
       </div>
       <div class="card">
         <div class="card-title">

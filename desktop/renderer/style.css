@@ -62,6 +62,12 @@ nav{flex:1;padding:8px 0}
 .card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:18px;transition:background .2s}
 .card.flex1{flex:1;min-width:0}
 .cards-row{display:flex;gap:14px}
+/* ── Dashboard top layout ── */
+.dashboard-top{display:flex;gap:20px;align-items:flex-start}
+.dashboard-stats{flex:1;min-width:0}
+.dashboard-ctrl{flex-shrink:0;width:120px}
+.btn-col{display:flex;flex-direction:column;gap:8px}
+.btn-col .btn{width:100%;justify-content:center}
 .card-title{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px}
 
 /* ── Status grid ── */

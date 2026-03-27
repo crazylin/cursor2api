@@ -46,7 +46,9 @@ document.querySelectorAll('.nav-item').forEach(el => {
   const ver = await window.api.getVersion();
   const vEl = document.getElementById('s-version');
   if (vEl) vEl.textContent = 'v' + ver;
-  setStatus(await window.api.getStatus());
+  const initRunning = await window.api.getStatus();
+  setStatus(initRunning);
+  if (initRunning) setTimeout(fetchModels, 1000);  // 启动时服务已运行则直接获取模型
   const logs = await window.api.getLogs();
   logs.forEach(addLine);
   scrollBot();

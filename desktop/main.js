@@ -7,6 +7,9 @@ const fs = require('fs');
 const isDev = process.argv.includes('--dev');
 const isMac = process.platform === 'darwin';
 
+// dev 模式下确保 app 名称一致，使 userData 路径正确
+if (isDev) app.setName('Cursor2API');
+
 // ── 路径 ──
 const APP_ROOT = isDev
   ? path.resolve(__dirname, '..')
@@ -17,6 +20,14 @@ const CONFIG_SRC  = path.join(APP_ROOT, 'config.yaml');
 const CONFIG_USER = path.join(USER_DATA, 'config.yaml');
 
 fs.mkdirSync(USER_DATA, { recursive: true });
+// 检测并修复 UTF-16 乱码文件（PowerShell Out-File 默认 UTF-16）
+if (fs.existsSync(CONFIG_USER)) {
+  const raw = fs.readFileSync(CONFIG_USER);
+  // UTF-16 LE BOM: FF FE，或 UTF-16 BE BOM: FE FF
+  if ((raw[0] === 0xFF && raw[1] === 0xFE) || (raw[0] === 0xFE && raw[1] === 0xFF)) {
+    fs.unlinkSync(CONFIG_USER);  // 删掉损坏的文件，下面重新生成
+  }
+}
 if (!fs.existsSync(CONFIG_USER)) {
   if (fs.existsSync(CONFIG_SRC)) {
     fs.copyFileSync(CONFIG_SRC, CONFIG_USER);
