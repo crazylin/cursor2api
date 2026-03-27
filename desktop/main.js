@@ -268,22 +268,31 @@ ipcMain.handle('hot-update', async (_e, distZipUrl) => {
       });
       file.on('finish', () => {
         addLog('[UPDATE] 下载完成 (' + Math.round(received/1024) + ' KB)，正在解压替换 dist/...');
-        const distDir = path.join(APP_ROOT, 'dist');
-        const ps = spawn('powershell.exe', [
-          '-NoProfile', '-Command',
-          `Expand-Archive -Force -Path '${tmpZip}' -DestinationPath '${distDir}'`
-        ], { stdio: 'pipe' });
-        let psErr = '';
+        // dist.zip 结构: package.json + dist/xxx.js
+        // 解压目标必须是 APP_ROOT（不是 APP_ROOT/dist）
+        const psCmd = [
+          `$z = '${tmpZip}'`,
+          `$dst = '${APP_ROOT.replace(/\\/g, '\\\\')}'`,
+          `$distDir = Join-Path $dst 'dist'`,
+          `if (Test-Path $distDir) { Remove-Item $distDir -Recurse -Force }`,
+          `Expand-Archive -Force -Path $z -DestinationPath $dst`,
+          `Write-Host 'OK'`
+        ].join('; ');
+        const ps = spawn('powershell.exe', ['-NoProfile', '-Command', psCmd], { stdio: 'pipe' });
+        let psOut = '', psErr = '';
+        ps.stdout.on('data', d => psOut += d.toString());
         ps.stderr.on('data', d => psErr += d.toString());
         ps.on('close', code => {
           if (code === 0) {
-            addLog('[UPDATE] 解压成功，正在重启服务...');
+            const newVer = readVersion();
+            addLog('[UPDATE] 解压成功 (v' + newVer + ')，正在重启服务...');
             mainWindow && mainWindow.webContents.send('download-progress', 100);
+            mainWindow && mainWindow.webContents.send('version-updated', newVer);
             stopService();
-            setTimeout(() => { startService(); resolve({ ok: true }); }, 800);
+            setTimeout(() => { startService(); resolve({ ok: true, version: newVer }); }, 800);
           } else {
-            addLog('[UPDATE] 解压失败: ' + psErr);
-            resolve({ ok: false, error: 'unzip failed: ' + psErr });
+            addLog('[UPDATE] 解压失败: ' + (psErr || psOut));
+            resolve({ ok: false, error: 'unzip failed: ' + (psErr || psOut) });
           }
         });
       });
