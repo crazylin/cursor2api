@@ -175,6 +175,111 @@ function switchTab(tab) {
   }
 }
 
+/** 顶层 key 行（无缩进，如 port: / vision: / fingerprint:） */
+function isTopLevelKeyLine(line) {
+  const t = line.trim();
+  return t && !/^\s/.test(line) && /^[a-zA-Z_][\w-]*:\s*(\S|$)/.test(line);
+}
+
+// 取最后一个顶层 vision: 块（避免文件中重复 vision: 时误读到第一项 false）
+function extractLastVisionBlockText(yaml) {
+  const lines = yaml.split(/\r?\n/);
+  let lastStart = -1;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (line.trim() && !/^\s/.test(line) && /^vision:\s*(\S|$)/.test(line)) lastStart = i;
+  }
+  if (lastStart < 0) return null;
+  const chunk = [];
+  for (let i = lastStart; i < lines.length; i++) {
+    const line = lines[i];
+    if (i > lastStart) {
+      const t = line.trim();
+      if (t && !/^\s/.test(line) && isTopLevelKeyLine(line)) break;
+    }
+    chunk.push(line);
+  }
+  return chunk.join('\n');
+}
+
+// 删除所有顶层 vision: 块（供 formToYaml 替换为单一整块）
+function removeAllVisionBlocksText(yaml) {
+  const lines = yaml.split(/\r?\n/);
+  const out = [];
+  let skipping = false;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const t = line.trim();
+    const isTop = isTopLevelKeyLine(line);
+    if (isTop && /^vision:/.test(line)) {
+      skipping = true;
+      continue;
+    }
+    if (skipping) {
+      if (!t) continue;
+      if (/^\s/.test(line)) continue;
+      skipping = false;
+    }
+    out.push(line);
+  }
+  return out.join('\n');
+}
+
+/** 从全文收集所有 auth_tokens 块里的 token（去重、保序）—— 避免重复 auth_tokens: 只保留读到的合并列表 */
+function collectAllAuthTokenValues(yaml) {
+  const lines = yaml.split(/\r?\n/);
+  const tokens = [];
+  const seen = new Set();
+  let inBlock = false;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (isTopLevelKeyLine(line) && /^auth_tokens:/.test(line.trimStart())) {
+      inBlock = true;
+      continue;
+    }
+    if (inBlock) {
+      if (!line.trim()) continue;
+      if (/^\s/.test(line)) {
+        const m = line.match(/^\s+-\s+["']?([^"'\n]+)["']?/);
+        if (m) {
+          const v = m[1].trim().replace(/^["']|["']$/g, '');
+          if (v && !seen.has(v)) {
+            seen.add(v);
+            tokens.push(v);
+          }
+        }
+        continue;
+      }
+      inBlock = false;
+      i--;
+    }
+  }
+  return tokens;
+}
+
+/** 删除所有顶层 auth_tokens: 块（与 vision 同理，防止只替换第一段留下第二段） */
+function removeAllAuthTokensBlocksText(yaml) {
+  const lines = yaml.split(/\r?\n/);
+  const out = [];
+  let skipping = false;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const t = line.trim();
+    const isTop = isTopLevelKeyLine(line);
+    if (isTop && /^auth_tokens:/.test(line.trimStart())) {
+      skipping = true;
+      continue;
+    }
+    if (skipping) {
+      if (!t) continue;
+      if (/^\s/.test(line)) continue;
+      skipping = false;
+    }
+    out.push(line);
+  }
+  return out.join('\n');
+}
+
 // ── YAML -> 表单 ──
 function yamlToForm(yaml) {
   const get = (key) => {
@@ -208,21 +313,15 @@ function yamlToForm(yaml) {
   const proxyM = yaml.match(/^proxy:\s*["']?([^"'\n#]+)/m);
   if (proxyM) document.getElementById('f-proxy').value = proxyM[1].trim().replace(/["']/g, '');
 
-  // auth_tokens：解析列表
-  const authBlock = yaml.match(/^auth_tokens:\s*\n((?:\s+-\s+.+\n?)*)/m);
-  if (authBlock) {
-    const tokens = authBlock[1].match(/^\s+-\s+["']?([^"'\n]+)["']?/mg) || [];
-    document.getElementById('f-auth-tokens').value = tokens.map(t => t.replace(/^\s+-\s+["']?|["']\s*$/g, '').trim()).join('\n');
-  } else {
-    document.getElementById('f-auth-tokens').value = '';
-  }
+  // auth_tokens：合并所有块（重复 auth_tokens: 时与 YAML 解析行为一致且去重）
+  const authToks = collectAllAuthTokenValues(yaml);
+  document.getElementById('f-auth-tokens').value = authToks.length ? authToks.join('\n') : '';
 
-  // vision enabled
-  const visionBlock = yaml.match(/^vision:[\s\S]*?(?=^\w|$)/m);
-  if (visionBlock) {
-    const vb = visionBlock[0];
-    const ve = vb.match(/enabled:\s*(true|false)/);
-    document.getElementById('f-vision').checked = ve ? ve[1] === 'true' : false;
+  // vision：必须用「最后一个」vision 块；旧正则会在第二个 vision: 处截断，把开关读成 false
+  const vb = extractLastVisionBlockText(yaml);
+  if (vb) {
+    const ve = vb.match(/enabled:\s*(true|false)/i);
+    document.getElementById('f-vision').checked = ve ? ve[1].toLowerCase() === 'true' : true;
     const vm = vb.match(/mode:\s*['"]?(\w+)['"]?/);
     let mode = vm ? vm[1] : 'ocr';
     if (mode === 'openai' || mode === 'gemini') mode = 'api';
@@ -234,6 +333,7 @@ function yamlToForm(yaml) {
     const vmod = vb.match(/^\s+model:\s*["']?([^"'\n#]+)/m);
     document.getElementById('f-vmodel').value = vmod ? vmod[1].trim().replace(/["']$/g, '') : '';
   } else {
+    document.getElementById('f-vision').checked = true;
     document.getElementById('f-vmode').value = 'ocr';
     document.getElementById('f-vkey').value = '';
     document.getElementById('f-vurl').value = '';
@@ -304,22 +404,17 @@ function formToYaml() {
     yaml = yaml.replace(/^proxy:.*$/m, '# proxy: "http://127.0.0.1:7890"');
   }
 
-  // auth_tokens
-  const authBlockRe = /^auth_tokens:[\s\S]*?(?=^\w|\Z)/m;
+  // auth_tokens：先删光所有顶层块再写一处（避免旧正则遇第二段 auth_tokens: 提前结束留下重复）
+  yaml = removeAllAuthTokensBlocksText(yaml).replace(/\n+$/, '');
   if (authTokens.length > 0) {
-    const newAuthBlock = 'auth_tokens:\n' + authTokens.map(t => '  - "' + t + '"').join('\n') + '\n';
-    if (authBlockRe.test(yaml)) yaml = yaml.replace(authBlockRe, newAuthBlock);
-    else yaml += '\n' + newAuthBlock;
-  } else {
-    // 移除 auth_tokens 块
-    yaml = yaml.replace(authBlockRe, '');
+    yaml += '\n\nauth_tokens:\n' + authTokens.map(t => '  - "' + String(t).replace(/"/g, '\\"') + '"').join('\n') + '\n';
   }
 
   setBoolLine('enable_thinking', String(thinking));
   setBoolLine('enable_progressive_truncation', String(truncation));
 
-  // vision 块（ocr 仅写 enabled+mode；api 写 Key/URL/模型）
-  const visionBlockRe = /(^vision:[\s\S]*?)(?=^\w|\Z)/m;
+  // vision：先去掉所有顶层 vision 块再写一个，避免重复 vision: 时只替换第一段
+  yaml = removeAllVisionBlocksText(yaml).replace(/\n+$/, '');
   let newVisionBlock = 'vision:\n' +
     '  enabled: ' + String(vision) + '\n' +
     "  mode: '" + (vmode === 'api' ? 'api' : 'ocr') + "'\n";
@@ -328,12 +423,7 @@ function formToYaml() {
     if (vkey) newVisionBlock += '  api_key: "' + vkey + '"\n';
     if (vmodel) newVisionBlock += '  model: "' + vmodel + '"\n';
   }
-
-  if (visionBlockRe.test(yaml)) {
-    yaml = yaml.replace(visionBlockRe, newVisionBlock);
-  } else {
-    yaml += '\n' + newVisionBlock;
-  }
+  yaml += '\n\n' + newVisionBlock + '\n';
 
   return yaml;
 }
@@ -367,22 +457,55 @@ async function fetchModels() {
 
 async function saveCfg() {
   const tip = document.getElementById('save-tip');
-  let content;
+  let res;
   if (activeTab === 'raw') {
-    content = document.getElementById('raw-cfg').value;
+    const content = document.getElementById('raw-cfg').value;
+    rawYaml = content;
+    res = await window.api.saveConfig(content);
   } else {
-    content = formToYaml();
-    document.getElementById('raw-cfg').value = content;
+    // 用结构化字段保存，主进程用 yaml 库正确写入
+    const port     = document.getElementById('f-port').value;
+    const timeout  = document.getElementById('f-timeout').value;
+    const model    = document.getElementById('f-model').value;
+    const proxy    = document.getElementById('f-proxy').value.trim();
+    const vision   = document.getElementById('f-vision').checked;
+    const thinking = document.getElementById('f-thinking').checked;
+    const truncation = document.getElementById('f-truncation').checked;
+    const vmode    = document.getElementById('f-vmode').value;
+    const vkey     = document.getElementById('f-vkey').value.trim();
+    const vurl     = document.getElementById('f-vurl').value.trim();
+    const vmodel   = document.getElementById('f-vmodel').value.trim();
+    const authRaw  = document.getElementById('f-auth-tokens').value.trim();
+    const authTokens = authRaw ? authRaw.split('\n').map(s => s.trim()).filter(Boolean) : [];
+    const fields = {};
+    if (port)    fields['port']    = parseInt(port);
+    if (timeout) fields['timeout'] = parseInt(timeout);
+    if (model)   fields['cursor_model'] = model;
+    if (proxy)   fields['proxy'] = proxy;
+    else         fields['proxy'] = null;
+    fields['enable_thinking'] = thinking;
+    fields['enable_progressive_truncation'] = truncation;
+    fields['vision.enabled'] = vision;
+    fields['vision.mode']    = vmode === 'api' ? 'api' : 'ocr';
+    if (vmode === 'api') {
+      if (vurl)   fields['vision.base_url'] = vurl;
+      if (vkey)   fields['vision.api_key']  = vkey;
+      if (vmodel) fields['vision.model']    = vmodel;
+    }
+    if (authTokens.length > 0) fields['auth_tokens'] = authTokens;
+    else fields['auth_tokens'] = null;
+    res = await window.api.saveConfigFields(fields);
+    // 保存后同步 raw-cfg 显示
+    const newRaw = await window.api.getConfig();
+    rawYaml = newRaw;
+    document.getElementById('raw-cfg').value = newRaw;
   }
-  rawYaml = content;
-  const res = await window.api.saveConfig(content);
   if (!res.ok) {
     tip.className = 'err';
     tip.textContent = '保存失败: ' + res.error;
     setTimeout(() => { tip.className = ''; tip.textContent = '保存后需重启服务生效'; }, 3000);
     return;
   }
-  // 保存成功后自动重启服务
   tip.className = 'ok';
   tip.textContent = '保存成功，正在重启服务...';
   await window.api.restartService();

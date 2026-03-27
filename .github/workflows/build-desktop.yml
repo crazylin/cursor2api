@@ -32,15 +32,6 @@ jobs:
       - name: Build TypeScript
         run: npm run build
 
-      - name: Patch vision.js to use TESSDATA_DIR env var
-        shell: pwsh
-        run: |
-          $f = 'dist/vision.js'
-          $content = Get-Content $f -Raw
-          $patched = $content -replace "createWorker\('eng\+chi_sim'\)", "createWorker('eng+chi_sim', 1, { cachePath: process.env.TESSDATA_DIR || '.' })"
-          Set-Content $f $patched -NoNewline
-          Write-Host 'Patched vision.js'
-
       - name: Sync desktop version from source
         shell: pwsh
         run: |

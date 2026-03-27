@@ -16,48 +16,8 @@ const APP_ROOT = isDev
   : path.join(process.resourcesPath, 'app');
 
 const USER_DATA = app.getPath('userData');
-const CONFIG_SRC  = path.join(APP_ROOT, 'config.yaml');
-const CONFIG_USER = path.join(USER_DATA, 'config.yaml');
-
-fs.mkdirSync(USER_DATA, { recursive: true });
-// 检测并修复 UTF-16 乱码文件（PowerShell Out-File 默认 UTF-16）
-if (fs.existsSync(CONFIG_USER)) {
-  const raw = fs.readFileSync(CONFIG_USER);
-  // UTF-16 LE BOM: FF FE，或 UTF-16 BE BOM: FE FF
-  if ((raw[0] === 0xFF && raw[1] === 0xFE) || (raw[0] === 0xFE && raw[1] === 0xFF)) {
-    fs.unlinkSync(CONFIG_USER);  // 删掉损坏的文件，下面重新生成
-  }
-}
-if (!fs.existsSync(CONFIG_USER)) {
-  if (fs.existsSync(CONFIG_SRC)) {
-    fs.copyFileSync(CONFIG_SRC, CONFIG_USER);
-  } else {
-    // 写入完整默认配置
-    const defaultCfg = [
-      '# Cursor2API 配置文件',
-      '',
-      '# 服务端口',
-      'port: 3010',
-      '',
-      '# 请求超时（秒）',
-      'timeout: 120',
-      '',
-      '# 代理设置（可选）',
-      '# proxy: "http://127.0.0.1:7890"',
-      '',
-      '# Cursor 使用的模型',
-      'cursor_model: "anthropic/claude-sonnet-4.6"',
-      '',
-      '# 视觉处理配置',
-      'vision:',
-      '  enabled: true',
-      '  mode: ocr',
-      '',
-    ].join('\n');
-    fs.writeFileSync(CONFIG_USER, defaultCfg, 'utf-8');
-  }
-}
-const CONFIG_PATH = CONFIG_USER;
+// 配置文件和服务保持同一路径（服务 cwd=APP_ROOT，读取 ./config.yaml）
+const CONFIG_PATH = path.join(APP_ROOT, 'config.yaml');
 
 // ── 全局变量 ──
 let tray = null;
@@ -77,6 +37,7 @@ const SVC_VERSION = readVersion();
 
 function readPort() {
   try {
+    if (!fs.existsSync(CONFIG_PATH)) return 3010;
     const c = fs.readFileSync(CONFIG_PATH, 'utf-8');
     const m = c.match(/^port:\s*(\d+)/m);
     return m ? parseInt(m[1]) : 3010;
@@ -231,15 +192,212 @@ function createMainWindow() {
 // ── IPC ──
 ipcMain.handle('get-status',  () => svcRunning);
 ipcMain.handle('get-logs',    () => logs);
-ipcMain.handle('get-config',  () => fs.readFileSync(CONFIG_PATH, 'utf-8'));
+const DEFAULT_CONFIG_DISPLAY = 'port: 3010\ntimeout: 120\ncursor_model: "anthropic/claude-sonnet-4.6"\nvision:\n  enabled: true\n  mode: \'ocr\'\n';
+ipcMain.handle('get-config',  () => {
+  if (!fs.existsSync(CONFIG_PATH)) return DEFAULT_CONFIG_DISPLAY;
+  const rawText = fs.readFileSync(CONFIG_PATH, 'utf-8');
+  return normalizeConfigYamlTextDuplicates(rawText);
+});
 ipcMain.handle('get-port',    () => PORT);
 ipcMain.handle('get-version', () => SVC_VERSION);
 ipcMain.handle('start-service',   () => { startService(); return true; });
 ipcMain.handle('stop-service',    () => { stopService();  return true; });
 ipcMain.handle('restart-service', () => new Promise(r => { stopService(); setTimeout(() => { startService(); r(true); }, 600); }));
 ipcMain.handle('save-config', (_e, content) => {
-  try { fs.writeFileSync(CONFIG_PATH, content, 'utf-8'); return { ok: true }; }
-  catch (e) { return { ok: false, error: e.message }; }
+  try {
+    fs.writeFileSync(CONFIG_PATH, roundTripYamlDedupeAllKeys(String(content)), 'utf-8');
+    return { ok: true };
+  } catch (e) { return { ok: false, error: e.message }; }
+});
+
+/** 与 renderer app.js 一致：规范化重复的顶层 auth_tokens / vision 块 */
+function isTopLevelKeyLineCfg(line) {
+  const t = line.trim();
+  return t && !/^\s/.test(line) && /^[a-zA-Z_][\w-]*:\s*(\S|$)/.test(line);
+}
+
+function removeAllBlocksNamedCfg(yaml, keyName) {
+  const prefix = keyName + ':';
+  const lines = String(yaml).split(/\r?\n/);
+  const out = [];
+  let skipping = false;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const t = line.trim();
+    const isTop = isTopLevelKeyLineCfg(line);
+    if (isTop && line.trimStart().startsWith(prefix)) {
+      skipping = true;
+      continue;
+    }
+    if (skipping) {
+      if (!t) continue;
+      if (/^\s/.test(line)) continue;
+      skipping = false;
+    }
+    out.push(line);
+  }
+  return out.join('\n');
+}
+
+function collectAllAuthTokenValuesCfg(yaml) {
+  const lines = String(yaml).split(/\r?\n/);
+  const tokens = [];
+  const seen = new Set();
+  let inBlock = false;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (isTopLevelKeyLineCfg(line) && /^auth_tokens:/.test(line.trimStart())) {
+      inBlock = true;
+      continue;
+    }
+    if (inBlock) {
+      if (!line.trim()) continue;
+      if (/^\s/.test(line)) {
+        const m = line.match(/^\s+-\s+["']?([^"'\n]+)["']?/);
+        if (m) {
+          const v = m[1].trim().replace(/^["']|["']$/g, '');
+          if (v && !seen.has(v)) {
+            seen.add(v);
+            tokens.push(v);
+          }
+        }
+        continue;
+      }
+      inBlock = false;
+      i--;
+    }
+  }
+  return tokens;
+}
+
+function extractLastBlockNamedCfg(yaml, keyName) {
+  const prefix = keyName + ':';
+  const lines = String(yaml).split(/\r?\n/);
+  let lastStart = -1;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (line.trim() && !/^\s/.test(line) && line.trimStart().startsWith(prefix)) lastStart = i;
+  }
+  if (lastStart < 0) return null;
+  const chunk = [];
+  for (let i = lastStart; i < lines.length; i++) {
+    const line = lines[i];
+    if (i > lastStart) {
+      const t = line.trim();
+      if (t && !/^\s/.test(line) && isTopLevelKeyLineCfg(line)) break;
+    }
+    chunk.push(line);
+  }
+  return chunk.join('\n');
+}
+
+/** 去掉重复 auth_tokens（合并去重）、只保留最后一个 vision 块；不改其他行顺序 */
+function normalizeConfigYamlTextDuplicates(text) {
+  let t = String(text);
+  const authToks = collectAllAuthTokenValuesCfg(t);
+  t = removeAllBlocksNamedCfg(t, 'auth_tokens').replace(/\n+$/, '');
+  if (authToks.length > 0) {
+    t += '\n\nauth_tokens:\n' + authToks.map(x => '  - "' + String(x).replace(/"/g, '\\"') + '"').join('\n');
+  }
+  const lastVision = extractLastBlockNamedCfg(t, 'vision');
+  t = removeAllBlocksNamedCfg(t, 'vision').replace(/\n+$/, '');
+  if (lastVision && lastVision.trim()) {
+    t += '\n\n' + lastVision.trim();
+  }
+  return t.trimEnd() + (t.trimEnd() ? '\n' : '');
+}
+
+/** vision 子项误入顶层时 stringify 会写成文件开头的 enabled/mode，需在写入前剔除 */
+function stripStrayVisionKeysFromRaw(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return;
+  if (!raw.vision || typeof raw.vision !== 'object' || Array.isArray(raw.vision)) return;
+  if ('enabled' in raw && typeof raw.enabled === 'boolean') delete raw.enabled;
+  if ('mode' in raw && typeof raw.mode === 'string') delete raw.mode;
+  if ('base_url' in raw) delete raw.base_url;
+  if ('api_key' in raw) delete raw.api_key;
+  if ('model' in raw && typeof raw.model === 'string') delete raw.model;
+}
+
+/**
+ * 先文本层合并多段 auth_tokens / vision，再 parse→对象→stringify。
+ * 可消掉其余重复顶层键（fingerprint、compression、thinking、tools、logging 等，同键多段通常保留解析结果的一份）。
+ */
+function roundTripYamlDedupeAllKeys(text) {
+  const YAML = require('yaml');
+  const mergedText = normalizeConfigYamlTextDuplicates(String(text));
+  try {
+    const raw = YAML.parseDocument(mergedText).toJS() || {};
+    stripStrayVisionKeysFromRaw(raw);
+    if (Array.isArray(raw.auth_tokens)) {
+      raw.auth_tokens = [...new Set(raw.auth_tokens.map(String))];
+    }
+    return YAML.stringify(raw, { lineWidth: 0 });
+  } catch {
+    return mergedText;
+  }
+}
+
+ipcMain.handle('save-config-fields', (_e, fields) => {
+  try {
+    const YAML = require('yaml');
+    // 读取现有配置（结构化解析，仿照 config-api.ts，如不存在则从空对象开始）
+    let raw = {};
+    if (fs.existsSync(CONFIG_PATH)) {
+      const normalizedText = normalizeConfigYamlTextDuplicates(fs.readFileSync(CONFIG_PATH, 'utf-8'));
+      raw = YAML.parseDocument(normalizedText).toJS() || {};
+      stripStrayVisionKeysFromRaw(raw);
+      if (Array.isArray(raw.auth_tokens)) {
+        raw.auth_tokens = [...new Set(raw.auth_tokens.map(String))];
+      }
+    }
+
+    // 逐字段合并，支持所有参数
+    if (fields.port !== undefined)    raw.port    = fields.port;
+    if (fields.timeout !== undefined) raw.timeout = fields.timeout;
+    if (fields.cursor_model !== undefined) raw.cursor_model = fields.cursor_model;
+
+    // proxy：null/空 表示删除
+    if ('proxy' in fields) {
+      if (fields.proxy) raw.proxy = fields.proxy;
+      else delete raw.proxy;
+    }
+
+    // auth_tokens：null/空数组 表示删除
+    if ('auth_tokens' in fields) {
+      if (fields.auth_tokens && fields.auth_tokens.length > 0) raw.auth_tokens = fields.auth_tokens;
+      else delete raw.auth_tokens;
+    }
+
+    if (fields.enable_thinking !== undefined) raw.enable_thinking = fields.enable_thinking;
+    if (fields.enable_progressive_truncation !== undefined) raw.enable_progressive_truncation = fields.enable_progressive_truncation;
+
+    // vision 块整体合并
+    if (fields['vision.enabled'] !== undefined || fields['vision.mode'] !== undefined) {
+      if (!raw.vision || typeof raw.vision !== 'object') raw.vision = {};
+      if (fields['vision.enabled'] !== undefined) raw.vision.enabled = fields['vision.enabled'];
+      if (fields['vision.mode']    !== undefined) raw.vision.mode    = fields['vision.mode'];
+      // mode=ocr 时清除 api 专用字段
+      if (raw.vision.mode === 'ocr') {
+        delete raw.vision.base_url;
+        delete raw.vision.api_key;
+        delete raw.vision.model;
+      } else {
+        if (fields['vision.base_url'] !== undefined) raw.vision.base_url = fields['vision.base_url'];
+        if (fields['vision.api_key']  !== undefined) raw.vision.api_key  = fields['vision.api_key'];
+        if (fields['vision.model']    !== undefined) raw.vision.model    = fields['vision.model'];
+      }
+    }
+
+    stripStrayVisionKeysFromRaw(raw);
+    if (Array.isArray(raw.auth_tokens)) {
+      raw.auth_tokens = [...new Set(raw.auth_tokens.map(String))];
+    }
+    fs.writeFileSync(CONFIG_PATH, YAML.stringify(raw, { lineWidth: 0 }), 'utf-8');
+    return { ok: true };
+  } catch (e) {
+    addLog('[ERROR] save-config-fields: ' + e.message);
+    return { ok: false, error: e.message };
+  }
 });
 ipcMain.handle('open-config-folder', () => shell.openPath(USER_DATA));
 ipcMain.handle('open-in-browser',    () => shell.openExternal('http://localhost:' + PORT));

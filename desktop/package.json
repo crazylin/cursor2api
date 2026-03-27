@@ -1,6 +1,6 @@
 {
   "name": "cursor2api-desktop",
-  "version": "2.6.7",
+  "version": "2.7.9",
   "description": "Cursor2API 桌面版 - 系统托盘管理工具",
   "main": "main.js",
   "repository": {

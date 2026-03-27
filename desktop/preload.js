@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld('api', {
   restartService: () => ipcRenderer.invoke('restart-service'),
 
   saveConfig:       (c) => ipcRenderer.invoke('save-config', c),
+  saveConfigFields: (f) => ipcRenderer.invoke('save-config-fields', f),
   openConfigFolder: ()  => ipcRenderer.invoke('open-config-folder'),
   openInBrowser:    ()  => ipcRenderer.invoke('open-in-browser'),
 
