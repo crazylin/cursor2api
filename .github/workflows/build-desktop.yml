@@ -58,6 +58,14 @@ jobs:
           Remove-Item node-win.zip, node-tmp -Recurse -Force
           Write-Host "node.exe bundled: $(Get-Item desktop\node-bin\node.exe | Select-Object -ExpandProperty Length) bytes"
 
+      - name: Create default config.yaml if missing
+        shell: pwsh
+        run: |
+          if (-not (Test-Path config.yaml)) {
+            'port: 3010' | Out-File -Encoding ascii config.yaml
+            Write-Host 'Created default config.yaml'
+          }
+
       - name: Download Tesseract traineddata
         shell: pwsh
         run: |
