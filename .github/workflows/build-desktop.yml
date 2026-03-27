@@ -58,6 +58,17 @@ jobs:
           Remove-Item node-win.zip, node-tmp -Recurse -Force
           Write-Host "node.exe bundled: $(Get-Item desktop\node-bin\node.exe | Select-Object -ExpandProperty Length) bytes"
 
+      - name: Download Tesseract traineddata
+        shell: pwsh
+        run: |
+          $base = 'https://github.com/tesseract-ocr/tessdata_best/raw/main'
+          Write-Host 'Downloading eng.traineddata...'
+          Invoke-WebRequest -Uri "$base/eng.traineddata" -OutFile eng.traineddata -UseBasicParsing
+          Write-Host "eng.traineddata: $([Math]::Round((Get-Item eng.traineddata).Length/1MB,1)) MB"
+          Write-Host 'Downloading chi_sim.traineddata...'
+          Invoke-WebRequest -Uri "$base/chi_sim.traineddata" -OutFile chi_sim.traineddata -UseBasicParsing
+          Write-Host "chi_sim.traineddata: $([Math]::Round((Get-Item chi_sim.traineddata).Length/1MB,1)) MB"
+
       - name: Build Windows installer
         working-directory: desktop
         env:

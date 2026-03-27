@@ -28,8 +28,10 @@
     "extraResources": [
       { "from": "../dist",         "to": "app/dist",         "filter": ["**/*"] },
       { "from": "../node_modules", "to": "app/node_modules", "filter": ["**/*"] },
-      { "from": "../config.yaml",  "to": "app/config.yaml" },
+      { "from": "../config.yaml",  "to": "app/config.yaml",  "filter": ["**"], "ignoreIfNotExists": true },
       { "from": "../package.json", "to": "app/package.json" },
+      { "from": "../eng.traineddata",     "to": "app/eng.traineddata" },
+      { "from": "../chi_sim.traineddata", "to": "app/chi_sim.traineddata" },
       { "from": "node-bin/node.exe", "to": "node/node.exe" }
     ],
     "win": {
