@@ -21,8 +21,29 @@ if (!fs.existsSync(CONFIG_USER)) {
   if (fs.existsSync(CONFIG_SRC)) {
     fs.copyFileSync(CONFIG_SRC, CONFIG_USER);
   } else {
-    // 写入最小默认配置，确保服务能正常启动和监听
-    fs.writeFileSync(CONFIG_USER, '# Cursor2API 配置文件\nport: 3010\n', 'utf-8');
+    // 写入完整默认配置
+    const defaultCfg = [
+      '# Cursor2API 配置文件',
+      '',
+      '# 服务端口',
+      'port: 3010',
+      '',
+      '# 请求超时（秒）',
+      'timeout: 120',
+      '',
+      '# 代理设置（可选）',
+      '# proxy: "http://127.0.0.1:7890"',
+      '',
+      '# Cursor 使用的模型',
+      'cursor_model: "anthropic/claude-sonnet-4.6"',
+      '',
+      '# 视觉处理配置',
+      'vision:',
+      '  enabled: true',
+      '  mode: ocr',
+      '',
+    ].join('\n');
+    fs.writeFileSync(CONFIG_USER, defaultCfg, 'utf-8');
   }
 }
 const CONFIG_PATH = CONFIG_USER;
