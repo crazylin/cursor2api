@@ -207,6 +207,7 @@ function createMainWindow() {
     show: false,
     backgroundColor: '#0f1117'
   });
+  mainWindow.setMenu(null);  // 去掉菜单栏
   mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
