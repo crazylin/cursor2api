@@ -14,7 +14,9 @@
     "build:mac": "electron-builder --mac",
     "build:linux": "electron-builder --linux"
   },
-  "dependencies": {},
+  "dependencies": {
+    "yaml": "^2.8.3"
+  },
   "devDependencies": {
     "electron": "^33.4.0",
     "electron-builder": "^25.1.8"
@@ -24,22 +26,64 @@
     "productName": "Cursor2API",
     "copyright": "MIT",
     "asar": true,
-    "directories": { "output": "dist" },
+    "directories": {
+      "output": "dist"
+    },
     "extraResources": [
-      { "from": "../dist",         "to": "app/dist",         "filter": ["**/*"] },
-      { "from": "../node_modules", "to": "app/node_modules", "filter": ["**/*"] },
-      { "from": "../config.yaml",  "to": "app/config.yaml" },
-      { "from": "../package.json", "to": "app/package.json" },
-      { "from": "../eng.traineddata",     "to": "app/eng.traineddata" },
-      { "from": "../chi_sim.traineddata", "to": "app/chi_sim.traineddata" },
-      { "from": "node-bin/node.exe", "to": "node/node.exe" }
+      {
+        "from": "../dist",
+        "to": "app/dist",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "../node_modules",
+        "to": "app/node_modules",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "../config.yaml",
+        "to": "app/config.yaml"
+      },
+      {
+        "from": "../package.json",
+        "to": "app/package.json"
+      },
+      {
+        "from": "../eng.traineddata",
+        "to": "app/eng.traineddata"
+      },
+      {
+        "from": "../chi_sim.traineddata",
+        "to": "app/chi_sim.traineddata"
+      },
+      {
+        "from": "node-bin/node.exe",
+        "to": "node/node.exe"
+      }
     ],
     "win": {
-      "target": [{ "target": "nsis", "arch": ["x64"] }],
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
       "icon": "assets/icon.ico"
     },
-    "mac": { "target": "dmg", "icon": "assets/icon.icns" },
-    "linux": { "target": "AppImage", "icon": "assets/icon.png" },
+    "mac": {
+      "target": "dmg",
+      "icon": "assets/icon.icns"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "assets/icon.png"
+    },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
