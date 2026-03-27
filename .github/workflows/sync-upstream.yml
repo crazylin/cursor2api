@@ -1,0 +1,101 @@
+name: Sync Upstream Fork
+
+on:
+  schedule:
+    # 每天 UTC 2:00 (北京时间 10:00) 自动检查上游更新
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    # 支持手动触发
+
+jobs:
+  sync:
+    name: Sync from upstream
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      has_new_commits: ${{ steps.sync.outputs.has_new_commits }}
+      new_version: ${{ steps.sync.outputs.new_version }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Sync upstream
+        id: sync
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          UPSTREAM_REPO="https://github.com/7836246/cursor2api.git"
+          git remote add upstream "$UPSTREAM_REPO" || true
+          git fetch upstream
+
+          UPSTREAM_BRANCH=$(git remote show upstream | grep 'HEAD branch' | awk '{print $NF}')
+          UPSTREAM_SHA=$(git rev-parse upstream/$UPSTREAM_BRANCH)
+          LOCAL_SHA=$(git rev-parse HEAD)
+
+          if [ "$LOCAL_SHA" = "$UPSTREAM_SHA" ]; then
+            echo "已是最新，无需同步。"
+            echo "has_new_commits=false" >> $GITHUB_OUTPUT
+          else
+            echo "检测到上游更新，强制同步..."
+            # 暂存本地 workflows 和 desktop 目录
+            cp -r .github/workflows /tmp/workflows_backup
+            [ -d desktop ] && cp -r desktop /tmp/desktop_backup || true
+            # 强制以上游为准
+            git reset --hard upstream/$UPSTREAM_BRANCH
+            # 恢复本地 workflows
+            mkdir -p .github/workflows
+            cp -r /tmp/workflows_backup/. .github/workflows/
+            # 恢复本地 desktop
+            [ -d /tmp/desktop_backup ] && cp -r /tmp/desktop_backup/. desktop/ || true
+            git add .github/workflows/ desktop/
+            git diff --cached --quiet || git commit -m "chore: restore local workflows and desktop after upstream sync"
+            git push origin HEAD --force
+            # 读取新版本号
+            NEW_VER=$(node -p "require('./package.json').version" 2>/dev/null || echo "")
+            echo "new_version=$NEW_VER" >> $GITHUB_OUTPUT
+            echo "has_new_commits=true" >> $GITHUB_OUTPUT
+            echo "同步完成，版本: $NEW_VER"
+          fi
+
+  # 同步完成后同时触发 Docker 构建和桌面端构建
+  trigger-builds:
+    name: Trigger Docker + Desktop Build
+    needs: sync
+    if: needs.sync.outputs.has_new_commits == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Trigger docker-publish workflow
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              workflow_id: 'docker-publish.yml',
+              ref: 'main'
+            })
+            console.log('已触发 docker-publish workflow')
+
+      - name: Trigger build-desktop workflow
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const ver = '${{ needs.sync.outputs.new_version }}';
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              workflow_id: 'build-desktop.yml',
+              ref: 'main',
+              inputs: { tag: ver ? `v${ver}` : '' }
+            })
+            console.log('已触发 build-desktop workflow, version=' + ver)

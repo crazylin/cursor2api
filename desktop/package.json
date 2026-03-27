@@ -1,0 +1,49 @@
+{
+  "name": "cursor2api-desktop",
+  "version": "2.6.7",
+  "description": "Cursor2API 桌面版 - 系统托盘管理工具",
+  "main": "main.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/crazylin/cursor2api.git"
+  },
+  "scripts": {
+    "dev": "electron . --dev",
+    "start": "electron .",
+    "build:win": "electron-builder --win --x64 --publish never",
+    "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "electron": "^33.4.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.cursor2api.desktop",
+    "productName": "Cursor2API",
+    "copyright": "MIT",
+    "asar": true,
+    "directories": { "output": "dist" },
+    "extraResources": [
+      { "from": "../dist",         "to": "app/dist",         "filter": ["**/*"] },
+      { "from": "../node_modules", "to": "app/node_modules", "filter": ["**/*"] },
+      { "from": "../config.yaml",  "to": "app/config.yaml" },
+      { "from": "../package.json", "to": "app/package.json" },
+      { "from": "node-bin/node.exe", "to": "node/node.exe" }
+    ],
+    "win": {
+      "target": [{ "target": "nsis", "arch": ["x64"] }],
+      "icon": "assets/icon.ico"
+    },
+    "mac": { "target": "dmg", "icon": "assets/icon.icns" },
+    "linux": { "target": "AppImage", "icon": "assets/icon.png" },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Cursor2API"
+    }
+  }
+}

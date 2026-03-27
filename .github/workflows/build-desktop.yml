@@ -1,0 +1,102 @@
+name: Build Desktop
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g. v2.6.7, leave empty to read from package.json)'
+        required: false
+        default: ''
+
+jobs:
+  build-win:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Build TypeScript
+        run: npm run build
+
+      - name: Sync desktop version from source
+        shell: pwsh
+        run: |
+          $srcVer = (Get-Content package.json | ConvertFrom-Json).version
+          $desktop = Get-Content desktop/package.json | ConvertFrom-Json
+          $desktop.version = $srcVer
+          $desktop | ConvertTo-Json -Depth 10 | Set-Content desktop/package.json
+          Write-Host "Desktop version synced to: $srcVer"
+
+      - name: Install desktop dependencies
+        working-directory: desktop
+        run: npm ci
+
+      - name: Download standalone node.exe for bundling
+        shell: pwsh
+        run: |
+          $nodeVer = '22.14.0'
+          $url = "https://nodejs.org/dist/v$nodeVer/node-v$nodeVer-win-x64.zip"
+          Write-Host "Downloading Node.js $nodeVer..."
+          Invoke-WebRequest -Uri $url -OutFile node-win.zip -UseBasicParsing
+          Expand-Archive -Path node-win.zip -DestinationPath node-tmp -Force
+          New-Item -ItemType Directory -Force -Path desktop\node-bin | Out-Null
+          Copy-Item "node-tmp\node-v$nodeVer-win-x64\node.exe" -Destination desktop\node-bin\node.exe
+          Remove-Item node-win.zip, node-tmp -Recurse -Force
+          Write-Host "node.exe bundled: $(Get-Item desktop\node-bin\node.exe | Select-Object -ExpandProperty Length) bytes"
+
+      - name: Build Windows installer
+        working-directory: desktop
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run build:win
+
+      - name: Get version & tag
+        id: version
+        shell: pwsh
+        run: |
+          $pkg_ver = (Get-Content package.json | ConvertFrom-Json).version
+          $input_tag = '${{ github.event.inputs.tag }}'
+          $push_tag  = '${{ github.ref_name }}'
+          if ($push_tag -match '^v') {
+            $tag = $push_tag
+          } elseif ($input_tag -ne '') {
+            $tag = $input_tag
+          } else {
+            $tag = "v$pkg_ver"
+          }
+          echo "tag=$tag" >> $env:GITHUB_OUTPUT
+          echo "version=$pkg_ver" >> $env:GITHUB_OUTPUT
+          echo "Using tag: $tag"
+
+      - name: Package dist.zip
+        shell: pwsh
+        run: |
+          Compress-Archive -Path dist\* -DestinationPath dist.zip -Force
+
+      - name: Create or update Release and upload assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: ${{ steps.version.outputs.tag }}
+          draft: false
+          prerelease: false
+          files: |
+            desktop/dist/Cursor2API Setup *.exe
+            desktop/dist/*.blockmap
+            dist.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
