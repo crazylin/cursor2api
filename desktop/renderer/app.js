@@ -463,9 +463,18 @@ async function loadReleases() {
       <td>
         ${(() => {
           const distAsset = (rel.assets || []).find(a => a.name === 'dist.zip');
+          const relVer = rel.tag.replace(/^v|-desktop$/g, '');
+          const curVer = _currentVer;
+          const newer = isNewer(rel.tag, 'v' + curVer);
           const btns = [];
-          if (distAsset) btns.push(`<button class="btn btn-green btn-sm" onclick="doHotUpdate('${distAsset.url}')" title="只替换服务逻辑，无需重装">热更新</button>`);
-          if (exeAssets.length) btns.push(...exeAssets.map(a => `<button class="btn btn-gray btn-sm" onclick="doDownload('${a.url}','${a.name}')" title="下载完整安装包重新安装">完整安装</button>`));
+          if (distAsset && newer) {
+            btns.push(`<button class="btn btn-green btn-sm" onclick="doHotUpdate('${distAsset.url}')" title="只替换服务逻辑，无需重装">⬆ 热更新</button>`);
+          }
+          if (exeAssets.length && newer) {
+            btns.push(...exeAssets.map(a => `<button class="btn btn-gray btn-sm" onclick="doDownload('${a.url}','${a.name}')" title="下载完整安装包重新安装">完整安装</button>`));
+          }
+          if (!newer && !isCurrent) btns.push('<span style="color:var(--text3);font-size:12px">旧版本</span>');
+          if (isCurrent) btns.push('<span style="color:var(--blue);font-size:12px">当前版本</span>');
           return btns.length ? btns.join(' ') : '<span style="color:var(--text3)">--</span>';
         })()
         }
