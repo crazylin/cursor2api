@@ -111,7 +111,8 @@ function startService() {
       NODE_ENV: 'production',
       PORT: String(PORT),
       CURSOR2API_CONFIG: CONFIG_PATH,
-      CURSOR2API_REQUEST_LOG: '1'
+      CURSOR2API_REQUEST_LOG: '1',
+      TESSDATA_DIR: APP_ROOT
     },
     stdio: ['ignore', 'pipe', 'pipe']
   });

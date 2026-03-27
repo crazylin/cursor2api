@@ -32,6 +32,15 @@ jobs:
       - name: Build TypeScript
         run: npm run build
 
+      - name: Patch vision.js to use TESSDATA_DIR env var
+        shell: pwsh
+        run: |
+          $f = 'dist/vision.js'
+          $content = Get-Content $f -Raw
+          $patched = $content -replace "createWorker\('eng\+chi_sim'\)", "createWorker('eng+chi_sim', 1, { cachePath: process.env.TESSDATA_DIR || '.' })"
+          Set-Content $f $patched -NoNewline
+          Write-Host 'Patched vision.js'
+
       - name: Sync desktop version from source
         shell: pwsh
         run: |
@@ -69,7 +78,7 @@ jobs:
       - name: Download Tesseract traineddata
         shell: pwsh
         run: |
-          $base = 'https://github.com/tesseract-ocr/tessdata_best/raw/main'
+          $base = 'https://github.com/tesseract-ocr/tessdata_fast/raw/main'
           Write-Host 'Downloading eng.traineddata...'
           Invoke-WebRequest -Uri "$base/eng.traineddata" -OutFile eng.traineddata -UseBasicParsing
           Write-Host "eng.traineddata: $([Math]::Round((Get-Item eng.traineddata).Length/1MB,1)) MB"
