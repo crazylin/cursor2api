@@ -85,7 +85,20 @@ jobs:
       - name: Package dist.zip
         shell: pwsh
         run: |
-          Compress-Archive -Path dist\* -DestinationPath dist.zip -Force
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $zipPath = [System.IO.Path]::GetFullPath('dist.zip')
+          if (Test-Path $zipPath) { Remove-Item $zipPath }
+          $zip = [System.IO.Compression.ZipFile]::Open($zipPath, 'Create')
+          # 打包 package.json 到根目录
+          [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, 'package.json', 'package.json') | Out-Null
+          # 打包 dist/ 目录下所有文件，保留 dist/ 前缀
+          Get-ChildItem -Path dist -Recurse -File | ForEach-Object {
+            $entryName = 'dist/' + $_.FullName.Substring((Get-Location).Path.Length + 6).Replace('\','/')
+            [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, $_.FullName, $entryName) | Out-Null
+          }
+          $zip.Dispose()
+          Write-Host "dist.zip entries:"
+          [System.IO.Compression.ZipFile]::OpenRead($zipPath).Entries | Select-Object FullName
 
       - name: Create or update Release and upload assets
         uses: softprops/action-gh-release@v2
