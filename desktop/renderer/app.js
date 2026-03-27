@@ -500,11 +500,15 @@ async function doHotUpdate(url) {
     if (label) label.textContent = '热更新完成，服务已自动重启！';
     if (fill)  fill.style.width = '100%';
     // 刷新当前版本号
-    const ver = await window.api.getVersion();
+    const ver = res.version || await window.api.getVersion();
+    _currentVer = ver;  // 更新全局版本号
     const el = document.getElementById('u-current');
     if (el) el.textContent = 'v' + ver;
     const sEl = document.getElementById('s-version');
     if (sEl) sEl.textContent = 'v' + ver;
+    // 重新渲染版本列表（按钮状态随之更新）
+    _releases = null;
+    setTimeout(() => loadReleases(), 500);
   }
 }
 
