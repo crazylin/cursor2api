@@ -16,11 +16,16 @@ const USER_DATA = app.getPath('userData');
 const CONFIG_SRC  = path.join(APP_ROOT, 'config.yaml');
 const CONFIG_USER = path.join(USER_DATA, 'config.yaml');
 
-if (!fs.existsSync(CONFIG_USER) && fs.existsSync(CONFIG_SRC)) {
-  fs.mkdirSync(USER_DATA, { recursive: true });
-  fs.copyFileSync(CONFIG_SRC, CONFIG_USER);
+fs.mkdirSync(USER_DATA, { recursive: true });
+if (!fs.existsSync(CONFIG_USER)) {
+  if (fs.existsSync(CONFIG_SRC)) {
+    fs.copyFileSync(CONFIG_SRC, CONFIG_USER);
+  } else {
+    // 写入最小默认配置，确保服务能正常启动和监听
+    fs.writeFileSync(CONFIG_USER, '# Cursor2API 配置文件\nport: 3010\n', 'utf-8');
+  }
 }
-const CONFIG_PATH = fs.existsSync(CONFIG_USER) ? CONFIG_USER : CONFIG_SRC;
+const CONFIG_PATH = CONFIG_USER;
 
 // ── 全局变量 ──
 let tray = null;
