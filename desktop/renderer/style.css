@@ -1,0 +1,189 @@
+*{box-sizing:border-box;margin:0;padding:0}
+
+/* ── 主题变量 ── */
+:root,[data-theme="dark"]{
+  --bg:#0f1117;--bg2:#1a1d27;--bg3:#242736;--border:#2e3246;
+  --text:#e2e8f0;--text2:#94a3b8;--text3:#4b5563;
+  --green:#4ade80;--red:#f87171;--blue:#60a5fa;--purple:#a78bfa;
+  --radius:8px;
+  --btn-green-bg:#166534;--btn-green-hover:#15803d;
+  --btn-red-bg:#7f1d1d;--btn-red-hover:#991b1b;
+  --btn-blue-bg:#1e3a5f;--btn-blue-hover:#1d4ed8;
+  --btn-gray-bg:#1f2937;--btn-gray-hover:#374151;
+  --icon-dark:block;--icon-light:none;
+}
+[data-theme="light"]{
+  --bg:#f1f5f9;--bg2:#ffffff;--bg3:#f8fafc;--border:#e2e8f0;
+  --text:#1e293b;--text2:#64748b;--text3:#94a3b8;
+  --green:#16a34a;--red:#dc2626;--blue:#2563eb;--purple:#7c3aed;
+  --btn-green-bg:#dcfce7;--btn-green-hover:#bbf7d0;
+  --btn-red-bg:#fee2e2;--btn-red-hover:#fecaca;
+  --btn-blue-bg:#dbeafe;--btn-blue-hover:#bfdbfe;
+  --btn-gray-bg:#f1f5f9;--btn-gray-hover:#e2e8f0;
+  --icon-dark:none;--icon-light:block;
+}
+
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;font-size:14px;transition:background .2s,color .2s}
+
+/* ── 布局 ── */
+.layout{display:flex;height:100vh}
+.sidebar{width:210px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;transition:background .2s}
+.content{flex:1;overflow:hidden;display:flex;flex-direction:column;background:var(--bg)}
+
+/* ── Logo ── */
+.logo{display:flex;align-items:center;gap:10px;padding:18px 16px 16px;border-bottom:1px solid var(--border)}
+.logo-text{}
+.logo-title{font-size:15px;font-weight:700;color:var(--blue);line-height:1.2}
+.logo-sub{font-size:11px;color:var(--text2);margin-top:1px}
+
+/* ── 导航 ── */
+nav{flex:1;padding:8px 0}
+.nav-item{display:flex;align-items:center;gap:9px;padding:10px 16px;cursor:pointer;color:var(--text2);transition:all .15s;border-left:3px solid transparent;font-size:13px}
+.nav-item:hover{background:var(--bg3);color:var(--text)}
+.nav-item.active{background:var(--bg3);color:var(--blue);border-left-color:var(--blue)}
+.nav-item svg{flex-shrink:0;opacity:.7}
+.nav-item.active svg{opacity:1}
+
+/* ── Sidebar footer ── */
+.sidebar-footer{padding:12px 16px;border-top:1px solid var(--border)}
+.theme-btn{display:flex;align-items:center;gap:7px;width:100%;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;color:var(--text2);font-size:12px;transition:all .15s}
+.theme-btn:hover{background:var(--border);color:var(--text)}
+.icon-dark{display:var(--icon-dark)}
+.icon-light{display:var(--icon-light)}
+
+/* ── Page ── */
+.page{display:none;flex:1;overflow-y:auto;padding:20px 24px;flex-direction:column;gap:14px}
+.page.active{display:flex}
+.page-header{display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.page-title{font-size:17px;font-weight:700;color:var(--text)}
+.page-actions{display:flex;align-items:center;gap:10px}
+
+/* ── Cards ── */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:18px;transition:background .2s}
+.card.flex1{flex:1;min-width:0}
+.cards-row{display:flex;gap:14px}
+.card-title{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px}
+
+/* ── Status grid ── */
+.status-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.stat{background:var(--bg3);border-radius:var(--radius);padding:14px}
+.stat-label{font-size:11px;color:var(--text2);margin-bottom:5px}
+.stat-value{font-size:19px;font-weight:700}
+.stat-value.green{color:var(--green)}.stat-value.red{color:var(--red)}.stat-value.blue{color:var(--blue)}
+
+/* ── Buttons ── */
+.btn-row{display:flex;gap:10px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:var(--radius);border:none;cursor:pointer;font-size:13px;font-weight:600;transition:all .15s}
+.btn.btn-sm{padding:5px 11px;font-size:12px}
+.btn:disabled{opacity:.35;cursor:not-allowed}
+.btn-green{background:var(--btn-green-bg);color:var(--green)}.btn-green:hover:not(:disabled){background:var(--btn-green-hover)}
+.btn-red{background:var(--btn-red-bg);color:var(--red)}.btn-red:hover:not(:disabled){background:var(--btn-red-hover)}
+.btn-blue{background:var(--btn-blue-bg);color:var(--blue)}.btn-blue:hover:not(:disabled){background:var(--btn-blue-hover)}
+.btn-gray{background:var(--btn-gray-bg);color:var(--text2)}.btn-gray:hover:not(:disabled){background:var(--btn-gray-hover);color:var(--text)}
+
+/* ── Endpoints ── */
+.endpoint{display:flex;align-items:center;justify-content:space-between;background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:10px 14px;margin-bottom:8px;gap:10px}
+.endpoint-label{font-size:12px;color:var(--text2);white-space:nowrap;flex-shrink:0}
+.endpoint-url{display:flex;align-items:center;gap:8px;font-family:Consolas,monospace;font-size:12px;color:var(--blue);word-break:break-all}
+.copy-btn{flex-shrink:0;padding:3px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;cursor:pointer;font-size:11px;color:var(--text2);transition:all .15s}
+.copy-btn:hover{background:var(--border);color:var(--text)}
+
+/* ── Log ── */
+/* 日志页：禁止整页滚动，只让 #log-box 内部滚动（flex 子项须 min-height:0 才能收缩） */
+#page-logs.page{overflow:hidden;min-height:0}
+.log-card{flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden}
+#log-box{
+  flex:1;
+  min-height:0;
+  overflow-y:auto;
+  overflow-x:hidden;
+  font-family:Consolas,monospace;
+  font-size:12px;
+  line-height:1.7;
+  color:var(--text2);
+  white-space:pre-wrap;
+  word-break:break-all
+}
+.log-line{padding:1px 0}
+.log-line.err{color:var(--red)}
+.log-line.ok{color:var(--green)}
+/* 本地识别时强制隐藏（避免 .form-grid 的 display:grid 盖过 [hidden]） */
+#vision-api-fields.form-grid{margin-top:4px}
+#vision-api-fields.vision-api--off{display:none !important}
+
+/* ── Config tabs ── */
+.cfg-tabs{display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid var(--border);padding-bottom:0}
+.cfg-tab{padding:7px 16px;background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;font-size:13px;color:var(--text2);transition:all .15s;margin-bottom:-1px}
+.cfg-tab:hover{color:var(--text)}
+.cfg-tab.active{color:var(--blue);border-bottom-color:var(--blue)}
+.cfg-panel{display:none}
+.cfg-panel.active{display:block}
+
+/* ── Form ── */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:4px}
+.form-group{display:flex;flex-direction:column;gap:5px}
+.form-group.full{grid-column:1/-1}
+.form-label{font-size:12px;font-weight:600;color:var(--text2)}
+.form-input{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text);font-size:13px;outline:none;width:100%;transition:border .15s}
+.form-input:focus{border-color:var(--blue)}
+.form-input.mono{font-family:Consolas,monospace}
+select.form-input{cursor:pointer}
+textarea.form-input{resize:vertical}
+.form-hint{font-size:11px;color:var(--text3)}
+.form-hint code{background:var(--bg3);padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:11px;color:var(--blue)}
+
+/* ── Section divider ── */
+.section-divider{font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin:18px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+
+/* ── Toggle list ── */
+.toggle-list{display:flex;flex-direction:column;gap:8px}
+.toggle-row{display:flex;align-items:center;justify-content:space-between;background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:10px 14px}
+.toggle-name{font-size:13px;color:var(--text)}
+.toggle-desc{font-size:11px;color:var(--text3);margin-top:2px}
+.toggle{position:relative;width:40px;height:22px;flex-shrink:0}
+.toggle input{opacity:0;width:0;height:0;position:absolute}
+.slider{position:absolute;inset:0;background:#374151;border-radius:22px;cursor:pointer;transition:.2s}
+.slider:before{content:'';position:absolute;width:16px;height:16px;left:3px;top:3px;background:white;border-radius:50%;transition:.2s}
+.toggle input:checked+.slider{background:#2563eb}
+.toggle input:checked+.slider:before{transform:translateX(18px)}
+
+/* ── Raw YAML ── */
+#raw-cfg{width:100%;height:400px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:14px;font-family:Consolas,monospace;font-size:13px;line-height:1.7;color:var(--text);resize:vertical;outline:none}
+#raw-cfg:focus{border-color:var(--blue)}
+
+/* ── Save row ── */
+.save-row{display:flex;align-items:center;gap:10px;margin-top:16px;padding-top:14px;border-top:1px solid var(--border)}
+#save-tip{font-size:12px;color:var(--text2)}
+#save-tip.ok{color:var(--green)}#save-tip.err{color:var(--red)}
+
+/* ── About ── */
+.about-hero{display:flex;align-items:center;gap:16px;margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid var(--border)}
+.about-name{font-size:18px;font-weight:700;color:var(--text)}
+.about-ver{font-size:13px;color:var(--text2);margin-top:3px}
+
+/* ── Badge ── */
+.badge{display:inline-block;background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:2px 8px;font-size:12px;color:var(--text2);margin:2px}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+::-webkit-scrollbar-track{background:transparent}
+
+/* ── Mono util ── */
+.mono{font-family:Consolas,monospace}
+
+/* ── Animations ── */
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+
+/* ���� �汾����ҳ ���� */
+.rel-table{width:100%;border-collapse:collapse;font-size:13px}
+.rel-table th{text-align:left;padding:8px 12px;color:var(--text2);font-weight:500;border-bottom:1px solid var(--border);font-size:12px}
+.rel-table td{padding:10px 12px;border-bottom:1px solid var(--border2);vertical-align:middle}
+.rel-table tr:last-child td{border-bottom:none}
+.rel-table tr:hover td{background:var(--hover)}
+.rel-tag{font-family:Consolas,monospace;font-weight:600;color:var(--text)}
+.rel-tag--current{color:var(--blue)}
+.btn-sm{padding:4px 10px;font-size:12px}
+.progress-bar{height:6px;background:var(--bg2);border-radius:3px;overflow:hidden}
+.progress-fill{height:100%;background:var(--blue);border-radius:3px;transition:width .2s;width:0%}
+
