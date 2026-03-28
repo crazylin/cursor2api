@@ -144,59 +144,135 @@
       <div class="page-header"><h2 class="page-title">配置</h2></div>
       <div class="card">
         <div class="cfg-tabs">
-          <button class="cfg-tab active" id="tab-simple" onclick="switchTab('simple')">常用设置</button>
-          <button class="cfg-tab" id="tab-raw" onclick="switchTab('raw')">原始 YAML</button>
+          <button class="cfg-tab active" id="tab-simple" onclick="void switchTab('simple')">常用设置</button>
+          <button class="cfg-tab" id="tab-raw" onclick="void switchTab('raw')">原始 YAML</button>
         </div>
         <div class="cfg-panel active" id="panel-simple">
-          <div class="form-grid">
-            <div class="form-group"><label class="form-label">服务端口</label><input class="form-input" type="number" id="f-port" min="1024" max="65535" placeholder="3010"><div class="form-hint">默认 3010</div></div>
-            <div class="form-group"><label class="form-label">请求超时（秒）</label><input class="form-input" type="number" id="f-timeout" min="10" max="600" placeholder="120"><div class="form-hint">默认 120 秒</div></div>
-            <div class="form-group full"><label class="form-label">AI 模型</label>
-              <select class="form-input" id="f-model">
-                <option value="anthropic/claude-sonnet-4.6">anthropic/claude-sonnet-4.6（推荐）</option>
-                <option value="claude-sonnet-4-5-20250929">claude-sonnet-4-5-20250929</option>
-                <option value="claude-sonnet-4-20250514">claude-sonnet-4-20250514</option>
-                <option value="claude-3-5-sonnet-20241022">claude-3-5-sonnet-20241022</option>
-              </select>
-              <div class="form-hint">Cursor 后端使用的模型，与 <code>/v1/models</code> 接口返回的 ID 一致</div>
-            </div>
-            <div class="form-group full"><label class="form-label">代理地址（可选）</label><input class="form-input mono" type="text" id="f-proxy" placeholder="http://127.0.0.1:7890"><div class="form-hint">国内访问 Cursor API 可能需要代理，留空则不使用</div></div>
-            <div class="form-group full">
-              <label class="form-label">API 鉴权 Token 列表（公网部署推荐配置）</label>
-              <textarea class="form-input mono" id="f-auth-tokens" rows="3" placeholder="每行一个 token，例如：&#10;sk-mytoken1&#10;sk-mytoken2" style="resize:vertical;line-height:1.6"></textarea>
-              <div class="form-hint">不填则不鉴权，全部放行。填写后客户端需在请求头中携带 Authorization: Bearer &lt;token&gt;</div>
-            </div>
+          <div class="cfg-simple-subtabs" role="tablist" aria-label="常用设置分类">
+            <button type="button" role="tab" class="cfg-subtab active" data-simple-sub="conn" id="subtab-conn" aria-selected="true" onclick="switchSimpleSub('conn')">连接</button>
+            <button type="button" role="tab" class="cfg-subtab" data-simple-sub="vision" id="subtab-vision" aria-selected="false" onclick="switchSimpleSub('vision')">Vision</button>
+            <button type="button" role="tab" class="cfg-subtab" data-simple-sub="ctx" id="subtab-ctx" aria-selected="false" onclick="switchSimpleSub('ctx')">上下文</button>
+            <button type="button" role="tab" class="cfg-subtab" data-simple-sub="tools" id="subtab-tools" aria-selected="false" onclick="switchSimpleSub('tools')">工具与日志</button>
           </div>
-          <div class="section-divider">功能开关</div>
-          <div class="toggle-list">
-            <div class="toggle-row">
-              <div><div class="toggle-name">Vision 图像识别</div><div class="toggle-desc">启用后拦截图片并做 OCR 或第三方视觉分析，再发给主模型</div></div>
-              <label class="toggle"><input type="checkbox" id="f-vision"><span class="slider"></span></label>
+          <div class="cfg-simple-wrap">
+            <div class="cfg-simple-subpanel active" id="simple-sub-conn" role="tabpanel">
+              <p class="cfg-subpanel-lead">端口、模型、代理与鉴权</p>
+              <div class="form-grid">
+                <div class="form-group"><label class="form-label">服务端口</label><input class="form-input" type="number" id="f-port" min="1024" max="65535" placeholder="3010"><div class="form-hint">默认 3010</div></div>
+                <div class="form-group"><label class="form-label">请求超时（秒）</label><input class="form-input" type="number" id="f-timeout" min="10" max="600" placeholder="120"><div class="form-hint">默认 120 秒</div></div>
+                <div class="form-group full"><label class="form-label">AI 模型</label>
+                  <select class="form-input" id="f-model">
+                    <option value="anthropic/claude-sonnet-4.6">anthropic/claude-sonnet-4.6（推荐）</option>
+                    <option value="claude-sonnet-4-5-20250929">claude-sonnet-4-5-20250929</option>
+                    <option value="claude-sonnet-4-20250514">claude-sonnet-4-20250514</option>
+                    <option value="claude-3-5-sonnet-20241022">claude-3-5-sonnet-20241022</option>
+                  </select>
+                  <div class="form-hint">与 <code>/v1/models</code> 返回的 ID 一致</div>
+                </div>
+                <div class="form-group full"><label class="form-label">代理地址（可选）</label><input class="form-input mono" type="text" id="f-proxy" placeholder="http://127.0.0.1:7890"><div class="form-hint">留空则不使用全局代理</div></div>
+                <div class="form-group full">
+                  <label class="form-label">API 鉴权 Token（每行一个）</label>
+                  <textarea class="form-input mono" id="f-auth-tokens" rows="4" placeholder="sk-mytoken1&#10;sk-mytoken2"></textarea>
+                  <div class="form-hint">不填则不鉴权。请求头 <code>Authorization: Bearer &lt;token&gt;</code></div>
+                </div>
+              </div>
             </div>
-            <div class="toggle-row">
-              <div><div class="toggle-name">深度思考（Thinking）</div><div class="toggle-desc">启用 Claude 扩展思考模式</div></div>
-              <label class="toggle"><input type="checkbox" id="f-thinking"><span class="slider"></span></label>
+            <div class="cfg-simple-subpanel" id="simple-sub-vision" role="tabpanel">
+              <p class="cfg-subpanel-lead">图片降级：OCR 或第三方视觉 API</p>
+              <div class="toggle-list">
+                <div class="toggle-row">
+                  <div><div class="toggle-name">启用图像识别</div><div class="toggle-desc">vision.enabled：拦截图片后再发给主模型</div></div>
+                  <label class="toggle"><input type="checkbox" id="f-vision"><span class="slider"></span></label>
+                </div>
+              </div>
+              <div class="form-grid">
+                <div class="form-group full"><label class="form-label">识别方式（vision.mode）</label>
+                  <select class="form-input" id="f-vmode" onchange="updateVisionModeUi()">
+                    <option value="ocr">本地 OCR（Tesseract，免 Key）</option>
+                    <option value="api">第三方视觉 API（OpenAI 兼容）</option>
+                  </select>
+                  <div class="form-hint">选 API 时需填写下方三项</div>
+                </div>
+              </div>
+              <div id="vision-api-fields" class="form-grid vision-api-fields vision-api--off" hidden>
+                <div class="form-group full"><label class="form-label">API Key（vision.api_key）</label><input class="form-input mono" type="password" id="f-vkey" placeholder="sk-..."></div>
+                <div class="form-group full"><label class="form-label">Base URL（vision.base_url）</label><input class="form-input mono" type="text" id="f-vurl" placeholder="https://openrouter.ai/api/v1/chat/completions"></div>
+                <div class="form-group full"><label class="form-label">模型 ID（vision.model）</label><input class="form-input mono" type="text" id="f-vmodel" placeholder="例如 gpt-4o-mini"></div>
+                <div class="form-group full"><div class="form-hint">多线路 <code>providers</code> 等在「原始 YAML」中配置</div></div>
+              </div>
             </div>
-            <div class="toggle-row">
-              <div><div class="toggle-name">渐进式截断</div><div class="toggle-desc">长对话自动截断以节省 token</div></div>
-              <label class="toggle"><input type="checkbox" id="f-truncation"><span class="slider"></span></label>
+            <div class="cfg-simple-subpanel" id="simple-sub-ctx" role="tabpanel">
+              <p class="cfg-subpanel-lead">Thinking、历史长度、对话压缩</p>
+              <div class="form-grid">
+                <div class="form-group full"><label class="form-label">Thinking</label>
+                  <select class="form-input" id="f-thinking-mode">
+                    <option value="follow">跟随客户端（不写入 thinking）</option>
+                    <option value="on">强制开启</option>
+                    <option value="off">强制关闭</option>
+                  </select>
+                  <div class="form-hint">「跟随客户端」时不生成 <code>thinking:</code> 块</div>
+                </div>
+                <div class="form-group"><label class="form-label">历史 Token 上限</label><input class="form-input mono" type="text" inputmode="numeric" id="f-max-history-tokens" placeholder="150000"><div class="form-hint">max_history_tokens；-1 不限制；留空删除键、用内置默认</div></div>
+                <div class="form-group"><label class="form-label">上下文压力系数（可选）</label><input class="form-input mono" type="text" inputmode="decimal" id="f-context-pressure" placeholder="如 1.35"><div class="form-hint">context_pressure；留空删除该项</div></div>
+              </div>
+              <div class="toggle-list">
+                <div class="toggle-row">
+                  <div><div class="toggle-name">对话压缩</div><div class="toggle-desc">compression.enabled</div></div>
+                  <label class="toggle"><input type="checkbox" id="f-compression-enabled"><span class="slider"></span></label>
+                </div>
+              </div>
+              <div class="form-grid">
+                <div class="form-group full"><label class="form-label">压缩级别（compression.level）</label>
+                  <select class="form-input" id="f-compression-level">
+                    <option value="1">1 轻度</option>
+                    <option value="2">2 中等（推荐）</option>
+                    <option value="3">3 激进</option>
+                  </select>
+                </div>
+              </div>
             </div>
-          </div>
-          <div class="section-divider">Vision 配置</div>
-          <div class="form-grid">
-            <div class="form-group full"><label class="form-label">识别方式</label>
-              <select class="form-input" id="f-vmode" onchange="updateVisionModeUi()">
-                <option value="ocr">本地识别（Tesseract OCR，免 Key）</option>
-                <option value="api">第三方视觉 API（OpenAI 兼容接口）</option>
-              </select>
-              <div class="form-hint">本地：CPU 识图提取文字；第三方：把图片发给外部多模态模型（需填写下方 Key 与地址）</div>
+            <div class="cfg-simple-subpanel" id="simple-sub-tools" role="tabpanel">
+              <p class="cfg-subpanel-lead">工具定义形态与请求日志落盘</p>
+              <div class="form-grid">
+                <div class="form-group full"><label class="form-label">工具 Schema 模式（tools.schema_mode）</label>
+                  <select class="form-input" id="f-schema-mode">
+                    <option value="compact">compact（紧凑，省 token）</option>
+                    <option value="full">full（完整 JSON Schema）</option>
+                    <option value="names_only">names_only（仅名称与描述）</option>
+                  </select>
+                </div>
+                <div class="form-group full form-group-logging">
+                  <label class="form-label">日志持久化（logging）</label>
+                  <div class="checkbox-inline-row">
+                    <label class="chk-inline"><input type="checkbox" id="f-log-db"> SQLite（db_enabled）</label>
+                    <label class="chk-inline"><input type="checkbox" id="f-log-file"> JSONL（file_enabled）</label>
+                  </div>
+                  <div class="form-hint">可热重载；路径、<code>persist_mode</code> 等在「原始 YAML」编辑</div>
+                </div>
+              </div>
+              <div class="section-divider cfg-subsection">工具进阶</div>
+              <div class="form-grid">
+                <div class="form-group"><label class="form-label">自动续写次数</label><input class="form-input mono" type="number" id="f-max-auto-continue" min="0" max="10" placeholder="0"><div class="form-hint">max_auto_continue，0 禁用</div></div>
+              </div>
+              <div class="toggle-list">
+                <div class="toggle-row">
+                  <div><div class="toggle-name">工具自适应历史预算</div><div class="toggle-desc">adaptive_budget</div></div>
+                  <label class="toggle"><input type="checkbox" id="f-tools-adaptive"><span class="slider"></span></label>
+                </div>
+                <div class="toggle-row">
+                  <div><div class="toggle-name">工具结果智能截断</div><div class="toggle-desc">smart_truncation</div></div>
+                  <label class="toggle"><input type="checkbox" id="f-tools-smart"><span class="slider"></span></label>
+                </div>
+                <div class="toggle-row">
+                  <div><div class="toggle-name">工具透传</div><div class="toggle-desc">passthrough（Roo / Cline 等）</div></div>
+                  <label class="toggle"><input type="checkbox" id="f-tools-passthrough"><span class="slider"></span></label>
+                </div>
+                <div class="toggle-row">
+                  <div><div class="toggle-name">禁用工具定义注入</div><div class="toggle-desc">disabled</div></div>
+                  <label class="toggle"><input type="checkbox" id="f-tools-disabled"><span class="slider"></span></label>
+                </div>
+              </div>
             </div>
-          </div>
-          <div id="vision-api-fields" class="form-grid vision-api-fields vision-api--off" hidden>
-            <div class="form-group full"><label class="form-label">第三方 API Key</label><input class="form-input mono" type="password" id="f-vkey" placeholder="sk-... 或 OpenRouter / Gemini 等 Key"></div>
-            <div class="form-group full"><label class="form-label">第三方 Base URL</label><input class="form-input mono" type="text" id="f-vurl" placeholder="https://openrouter.ai/api/v1/chat/completions"></div>
-            <div class="form-group full"><label class="form-label">视觉模型 ID</label><input class="form-input mono" type="text" id="f-vmodel" placeholder="例如 gpt-4o-mini、meta-llama/llama-3.2-11b-vision-instruct:free"></div>
-            <div class="form-group full"><div class="form-hint">对应 <code>config.yaml</code> 里 <code>vision.base_url</code> / <code>api_key</code> / <code>model</code>；多线路 <code>providers</code> 请在「原始 YAML」中编辑</div></div>
           </div>
         </div>
         <div class="cfg-panel" id="panel-raw">

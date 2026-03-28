@@ -362,66 +362,146 @@ function getConfigForDesktop() {
   return { port, firstToken };
 }
 
-ipcMain.handle('save-config-fields', (_e, fields) => {
-  try {
-    const YAML = require('yaml');
-    // 读取现有配置（结构化解析，仿照 config-api.ts，如不存在则从空对象开始）
-    let raw = {};
-    if (fs.existsSync(CONFIG_PATH)) {
-      const normalizedText = normalizeConfigYamlTextDuplicates(fs.readFileSync(CONFIG_PATH, 'utf-8'));
-      raw = YAML.parseDocument(normalizedText).toJS() || {};
-      stripStrayVisionKeysFromRaw(raw);
-      if (Array.isArray(raw.auth_tokens)) {
-        raw.auth_tokens = [...new Set(raw.auth_tokens.map(String))];
-      }
-    }
-
-    // 逐字段合并，支持所有参数
-    if (fields.port !== undefined)    raw.port    = fields.port;
-    if (fields.timeout !== undefined) raw.timeout = fields.timeout;
-    if (fields.cursor_model !== undefined) raw.cursor_model = fields.cursor_model;
-
-    // proxy：null/空 表示删除
-    if ('proxy' in fields) {
-      if (fields.proxy) raw.proxy = fields.proxy;
-      else delete raw.proxy;
-    }
-
-    // auth_tokens：null/空数组 表示删除
-    if ('auth_tokens' in fields) {
-      if (fields.auth_tokens && fields.auth_tokens.length > 0) raw.auth_tokens = fields.auth_tokens;
-      else delete raw.auth_tokens;
-    }
-
-    if (fields.enable_thinking !== undefined) raw.enable_thinking = fields.enable_thinking;
-    if (fields.enable_progressive_truncation !== undefined) raw.enable_progressive_truncation = fields.enable_progressive_truncation;
-
-    // vision 块整体合并
-    if (fields['vision.enabled'] !== undefined || fields['vision.mode'] !== undefined) {
-      if (!raw.vision || typeof raw.vision !== 'object') raw.vision = {};
-      if (fields['vision.enabled'] !== undefined) raw.vision.enabled = fields['vision.enabled'];
-      if (fields['vision.mode']    !== undefined) raw.vision.mode    = fields['vision.mode'];
-      // mode=ocr 时清除 api 专用字段
-      if (raw.vision.mode === 'ocr') {
-        delete raw.vision.base_url;
-        delete raw.vision.api_key;
-        delete raw.vision.model;
-      } else {
-        if (fields['vision.base_url'] !== undefined) raw.vision.base_url = fields['vision.base_url'];
-        if (fields['vision.api_key']  !== undefined) raw.vision.api_key  = fields['vision.api_key'];
-        if (fields['vision.model']    !== undefined) raw.vision.model    = fields['vision.model'];
-      }
-    }
-
+/** 从磁盘读入并解析为对象（与 save-config-fields 一致） */
+function loadConfigRawObject() {
+  const YAML = require('yaml');
+  let raw = {};
+  if (fs.existsSync(CONFIG_PATH)) {
+    const normalizedText = normalizeConfigYamlTextDuplicates(fs.readFileSync(CONFIG_PATH, 'utf-8'));
+    raw = YAML.parseDocument(normalizedText).toJS() || {};
     stripStrayVisionKeysFromRaw(raw);
     if (Array.isArray(raw.auth_tokens)) {
       raw.auth_tokens = [...new Set(raw.auth_tokens.map(String))];
     }
+  }
+  return raw;
+}
+
+/**
+ * 将桌面表单字段合并进已解析的 raw（保留各块内未在表单暴露的键）
+ */
+function mergeConfigFields(raw, fields) {
+  delete raw.enable_thinking;
+  delete raw.enable_progressive_truncation;
+
+  if (fields.port !== undefined) raw.port = fields.port;
+  if (fields.timeout !== undefined) raw.timeout = fields.timeout;
+  if (fields.cursor_model !== undefined) raw.cursor_model = fields.cursor_model;
+
+  if ('proxy' in fields) {
+    if (fields.proxy) raw.proxy = fields.proxy;
+    else delete raw.proxy;
+  }
+
+  if ('auth_tokens' in fields) {
+    if (fields.auth_tokens && fields.auth_tokens.length > 0) raw.auth_tokens = fields.auth_tokens;
+    else delete raw.auth_tokens;
+  }
+
+  if (fields['vision.enabled'] !== undefined || fields['vision.mode'] !== undefined) {
+    if (!raw.vision || typeof raw.vision !== 'object' || Array.isArray(raw.vision)) raw.vision = {};
+    if (fields['vision.enabled'] !== undefined) raw.vision.enabled = fields['vision.enabled'];
+    if (fields['vision.mode'] !== undefined) raw.vision.mode = fields['vision.mode'];
+    if (raw.vision.mode === 'ocr') {
+      delete raw.vision.base_url;
+      delete raw.vision.api_key;
+      delete raw.vision.model;
+    } else {
+      if (fields['vision.base_url'] !== undefined) raw.vision.base_url = fields['vision.base_url'];
+      if (fields['vision.api_key'] !== undefined) raw.vision.api_key = fields['vision.api_key'];
+      if (fields['vision.model'] !== undefined) raw.vision.model = fields['vision.model'];
+    }
+  }
+
+  if (fields.thinking_mode !== undefined) {
+    if (fields.thinking_mode === 'follow') delete raw.thinking;
+    else raw.thinking = { enabled: fields.thinking_mode === 'on' };
+  }
+
+  if (fields.compression_enabled !== undefined || fields.compression_level !== undefined) {
+    const prev = raw.compression && typeof raw.compression === 'object' && !Array.isArray(raw.compression) ? raw.compression : {};
+    raw.compression = { ...prev };
+    if (fields.compression_enabled !== undefined) raw.compression.enabled = fields.compression_enabled;
+    if (fields.compression_level !== undefined) raw.compression.level = fields.compression_level;
+  }
+
+  if ('max_history_tokens' in fields) {
+    if (fields.max_history_tokens == null) delete raw.max_history_tokens;
+    else raw.max_history_tokens = fields.max_history_tokens;
+  }
+
+  if ('context_pressure' in fields) {
+    if (fields.context_pressure == null) delete raw.context_pressure;
+    else raw.context_pressure = fields.context_pressure;
+  }
+
+  if (fields.max_auto_continue !== undefined) raw.max_auto_continue = fields.max_auto_continue;
+
+  const toolKeys = ['tools_schema_mode', 'tools_passthrough', 'tools_disabled', 'tools_adaptive_budget', 'tools_smart_truncation'];
+  if (toolKeys.some(k => fields[k] !== undefined)) {
+    const prev = raw.tools && typeof raw.tools === 'object' && !Array.isArray(raw.tools) ? raw.tools : {};
+    raw.tools = { ...prev };
+    if (fields.tools_schema_mode !== undefined) raw.tools.schema_mode = fields.tools_schema_mode;
+    if (fields.tools_passthrough !== undefined) raw.tools.passthrough = fields.tools_passthrough;
+    if (fields.tools_disabled !== undefined) raw.tools.disabled = fields.tools_disabled;
+    if (fields.tools_adaptive_budget !== undefined) raw.tools.adaptive_budget = fields.tools_adaptive_budget;
+    if (fields.tools_smart_truncation !== undefined) raw.tools.smart_truncation = fields.tools_smart_truncation;
+  }
+
+  if (fields.logging_db_enabled !== undefined || fields.logging_file_enabled !== undefined) {
+    const prev = raw.logging && typeof raw.logging === 'object' && !Array.isArray(raw.logging) ? raw.logging : {};
+    raw.logging = { ...prev };
+    if (fields.logging_db_enabled !== undefined) raw.logging.db_enabled = fields.logging_db_enabled;
+    if (fields.logging_file_enabled !== undefined) raw.logging.file_enabled = fields.logging_file_enabled;
+  }
+
+  stripStrayVisionKeysFromRaw(raw);
+  if (Array.isArray(raw.auth_tokens)) {
+    raw.auth_tokens = [...new Set(raw.auth_tokens.map(String))];
+  }
+}
+
+ipcMain.handle('save-config-fields', (_e, fields) => {
+  try {
+    const YAML = require('yaml');
+    const raw = loadConfigRawObject();
+    mergeConfigFields(raw, fields);
     fs.writeFileSync(CONFIG_PATH, YAML.stringify(raw, { lineWidth: 0 }), 'utf-8');
     return { ok: true };
   } catch (e) {
     addLog('[ERROR] save-config-fields: ' + e.message);
     return { ok: false, error: e.message };
+  }
+});
+
+/**
+ * 将表单字段合并进 YAML 文本（用于「常用设置 → 原始 YAML」预览；baseYaml 为当前文本框内容时可保留未保存的 raw 编辑）
+ */
+ipcMain.handle('preview-config-fields', (_e, payload) => {
+  try {
+    const YAML = require('yaml');
+    let fields = payload;
+    let baseYaml = '';
+    if (payload && typeof payload === 'object' && 'fields' in payload) {
+      fields = payload.fields;
+      baseYaml = typeof payload.baseYaml === 'string' ? payload.baseYaml : '';
+    }
+    let raw = {};
+    if (baseYaml.trim()) {
+      const mergedText = normalizeConfigYamlTextDuplicates(baseYaml);
+      raw = YAML.parseDocument(mergedText).toJS() || {};
+    } else {
+      raw = loadConfigRawObject();
+    }
+    stripStrayVisionKeysFromRaw(raw);
+    if (Array.isArray(raw.auth_tokens)) {
+      raw.auth_tokens = [...new Set(raw.auth_tokens.map(String))];
+    }
+    mergeConfigFields(raw, fields);
+    return YAML.stringify(raw, { lineWidth: 0 });
+  } catch (e) {
+    addLog('[ERROR] preview-config-fields: ' + e.message);
+    return '';
   }
 });
 ipcMain.handle('open-config-folder', () => shell.openPath(USER_DATA));

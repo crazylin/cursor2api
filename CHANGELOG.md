@@ -1,5 +1,21 @@
 # Changelog
 
+## 本 fork · 桌面版（版本号与上游一致 2.7.8）
+
+**2026-03-28**
+
+- **修复安装版保存配置报错**：将 `yaml` 纳入 `desktop` 打包依赖，安装包内可正常 `require('yaml')`
+- **图标与托盘**：新 Logo；去除四角/外圈不透明白边并提高画布占比，重新生成多尺寸 `icon.ico`
+
+**同日 · 桌面配置 UI（`v2.7.8-desktop` 重发）**
+
+- **常用设置对齐 `config.yaml`**：`thinking` / `compression` / `max_history_tokens` / `context_pressure` / `tools` / `logging` 等嵌套项写入与合并；保存时剔除无效顶层旧键
+- **子 Tab**：连接、Vision、上下文、工具与日志分区，减少单页堆砌
+- **交互**：切换「原始 YAML」时由主进程 `preview-config-fields` 生成合并预览；Vision 选项紧贴开关
+- **版式**：浅色主题对比度、表单标签字重、子 Tab 选中强调色、区块与说明间距
+
+---
+
 ## v2.7.7 (2026-03-23)
 
 ### 🩺 降级日志与可观测性增强

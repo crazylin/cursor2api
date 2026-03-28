@@ -16,6 +16,8 @@ contextBridge.exposeInMainWorld('api', {
 
   saveConfig:       (c) => ipcRenderer.invoke('save-config', c),
   saveConfigFields: (f) => ipcRenderer.invoke('save-config-fields', f),
+  /** 合并表单字段到 YAML 文本（不写盘），payload: { fields, baseYaml? } */
+  previewConfigFields: (p) => ipcRenderer.invoke('preview-config-fields', p),
   openConfigFolder: ()  => ipcRenderer.invoke('open-config-folder'),
   openInBrowser:    ()  => ipcRenderer.invoke('open-in-browser'),
   openExternalUrl:  (u) => ipcRenderer.invoke('open-external-url', u),

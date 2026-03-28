@@ -3,6 +3,8 @@
 let running = false, autoScroll = true, startTime = null, uptimeTimer = null, port = 3010;
 let rawYaml = '';
 let activeTab = 'simple';
+/** 常用设置内子 Tab：conn | vision | ctx | tools */
+let activeSimpleSub = 'conn';
 
 /** 日志页子视图：console = 运行日志（进程输出），viewer = 请求日志（内嵌 /logs） */
 let logViewMode = 'console';
@@ -123,6 +125,7 @@ document.querySelectorAll('.nav-item').forEach(el => {
   const vmodeSel = document.getElementById('f-vmode');
   if (vmodeSel) vmodeSel.addEventListener('change', updateVisionModeUi);
   updateVisionModeUi();
+  switchSimpleSub(activeSimpleSub);
   document.querySelectorAll('.about-link[data-about-url]').forEach(btn => {
     btn.addEventListener('click', () => {
       const u = btn.getAttribute('data-about-url');
@@ -243,8 +246,100 @@ function cp(id) {
   if (btn) { const o = btn.textContent; btn.textContent = '已复制'; setTimeout(() => btn.textContent = o, 1500); }
 }
 
+/** 从「常用设置」表单收集字段，供 save-config-fields / 预览 YAML 使用 */
+function collectFieldsFromForm() {
+  const port = document.getElementById('f-port').value;
+  const timeout = document.getElementById('f-timeout').value;
+  const model = document.getElementById('f-model').value;
+  const proxy = document.getElementById('f-proxy').value.trim();
+  const authRaw = document.getElementById('f-auth-tokens').value.trim();
+  const authTokens = authRaw ? authRaw.split('\n').map(s => s.trim()).filter(Boolean) : [];
+  const vision = document.getElementById('f-vision').checked;
+  const vmode = document.getElementById('f-vmode').value;
+  const vkey = document.getElementById('f-vkey').value.trim();
+  const vurl = document.getElementById('f-vurl').value.trim();
+  const vmodel = document.getElementById('f-vmodel').value.trim();
+
+  const fields = {};
+  if (port) fields.port = parseInt(port, 10);
+  if (timeout) fields.timeout = parseInt(timeout, 10);
+  if (model) fields.cursor_model = model;
+  if (proxy) fields.proxy = proxy;
+  else fields.proxy = null;
+  fields['vision.enabled'] = vision;
+  fields['vision.mode'] = vmode === 'api' ? 'api' : 'ocr';
+  if (vmode === 'api') {
+    if (vurl) fields['vision.base_url'] = vurl;
+    if (vkey) fields['vision.api_key'] = vkey;
+    if (vmodel) fields['vision.model'] = vmodel;
+  }
+  if (authTokens.length > 0) fields.auth_tokens = authTokens;
+  else fields.auth_tokens = null;
+
+  const tm = document.getElementById('f-thinking-mode');
+  if (tm) fields.thinking_mode = tm.value;
+
+  const mhts = document.getElementById('f-max-history-tokens').value.trim();
+  if (mhts === '') fields.max_history_tokens = null;
+  else {
+    const n = parseInt(mhts, 10);
+    if (!Number.isNaN(n)) fields.max_history_tokens = n;
+  }
+
+  const cps = document.getElementById('f-context-pressure').value.trim();
+  if (cps === '') fields.context_pressure = null;
+  else {
+    const n = parseFloat(cps);
+    if (!Number.isNaN(n)) fields.context_pressure = n;
+  }
+
+  const fce = document.getElementById('f-compression-enabled');
+  const fcl = document.getElementById('f-compression-level');
+  if (fce) fields.compression_enabled = fce.checked;
+  if (fcl) fields.compression_level = parseInt(fcl.value, 10);
+
+  const fmac = document.getElementById('f-max-auto-continue');
+  if (fmac) {
+    const n = parseInt(fmac.value, 10);
+    fields.max_auto_continue = Number.isNaN(n) ? 0 : n;
+  }
+
+  const fsm = document.getElementById('f-schema-mode');
+  if (fsm) fields.tools_schema_mode = fsm.value;
+
+  const ta = document.getElementById('f-tools-adaptive');
+  const ts = document.getElementById('f-tools-smart');
+  const tp = document.getElementById('f-tools-passthrough');
+  const td = document.getElementById('f-tools-disabled');
+  if (ta) fields.tools_adaptive_budget = ta.checked;
+  if (ts) fields.tools_smart_truncation = ts.checked;
+  if (tp) fields.tools_passthrough = tp.checked;
+  if (td) fields.tools_disabled = td.checked;
+
+  const fld = document.getElementById('f-log-db');
+  const flf = document.getElementById('f-log-file');
+  if (fld) fields.logging_db_enabled = fld.checked;
+  if (flf) fields.logging_file_enabled = flf.checked;
+
+  return fields;
+}
+
+function switchSimpleSub(sub) {
+  const allowed = ['conn', 'vision', 'ctx', 'tools'];
+  if (!allowed.includes(sub)) sub = 'conn';
+  activeSimpleSub = sub;
+  document.querySelectorAll('.cfg-subtab[data-simple-sub]').forEach(b => {
+    const on = b.getAttribute('data-simple-sub') === sub;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+  document.querySelectorAll('.cfg-simple-subpanel').forEach(p => {
+    p.classList.toggle('active', p.id === 'simple-sub-' + sub);
+  });
+}
+
 // ── 配置 Tab 切换 ──
-function switchTab(tab) {
+async function switchTab(tab) {
   activeTab = tab;
   document.querySelectorAll('.cfg-tab').forEach((el, i) => {
     el.classList.toggle('active', (i === 0 && tab === 'simple') || (i === 1 && tab === 'raw'));
@@ -252,10 +347,12 @@ function switchTab(tab) {
   document.getElementById('panel-simple').classList.toggle('active', tab === 'simple');
   document.getElementById('panel-raw').classList.toggle('active', tab === 'raw');
   if (tab === 'raw') {
-    // 切换到原始 YAML 时，先把表单内容同步过去
-    document.getElementById('raw-cfg').value = formToYaml();
+    const base = document.getElementById('raw-cfg').value || rawYaml || '';
+    const fields = collectFieldsFromForm();
+    const text = await window.api.previewConfigFields({ fields, baseYaml: base });
+    if (text && String(text).trim()) document.getElementById('raw-cfg').value = text;
+    else document.getElementById('raw-cfg').value = formToYaml(); // 回退：不含 thinking/compression 等嵌套项
   } else {
-    // 切换到表单时，把 raw-cfg 内容解析到表单
     yamlToForm(document.getElementById('raw-cfg').value);
   }
 }
@@ -273,6 +370,28 @@ function extractLastVisionBlockText(yaml) {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     if (line.trim() && !/^\s/.test(line) && /^vision:\s*(\S|$)/.test(line)) lastStart = i;
+  }
+  if (lastStart < 0) return null;
+  const chunk = [];
+  for (let i = lastStart; i < lines.length; i++) {
+    const line = lines[i];
+    if (i > lastStart) {
+      const t = line.trim();
+      if (t && !/^\s/.test(line) && isTopLevelKeyLine(line)) break;
+    }
+    chunk.push(line);
+  }
+  return chunk.join('\n');
+}
+
+/** 取最后一个顶层 keyName: 块（与 vision 逻辑相同，供 thinking / compression / tools / logging 解析） */
+function extractLastBlockNamedText(yaml, keyName) {
+  const prefix = keyName + ':';
+  const lines = yaml.split(/\r?\n/);
+  let lastStart = -1;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (line.trim() && !/^\s/.test(line) && line.trimStart().startsWith(prefix)) lastStart = i;
   }
   if (lastStart < 0) return null;
   const chunk = [];
@@ -426,36 +545,87 @@ function yamlToForm(yaml) {
   }
   updateVisionModeUi();
 
-  // thinking
-  const thinkM = yaml.match(/^#?\s*enable_thinking:\s*(true|false)/m);
-  document.getElementById('f-thinking').checked = thinkM ? thinkM[1] === 'true' : true;
+  let thinkingMode = 'follow';
+  const tbThink = extractLastBlockNamedText(yaml, 'thinking');
+  if (tbThink) {
+    const en = tbThink.match(/^\s*enabled:\s*(true|false)/im);
+    thinkingMode = en && en[1].toLowerCase() === 'false' ? 'off' : 'on';
+  }
+  const selThink = document.getElementById('f-thinking-mode');
+  if (selThink) selThink.value = thinkingMode;
 
-  // truncation
-  const truncM = yaml.match(/^#?\s*enable_progressive_truncation:\s*(true|false)/m);
-  document.getElementById('f-truncation').checked = truncM ? truncM[1] === 'true' : true;
+  const mht = yaml.match(/^max_history_tokens:\s*(-?\d+)/m);
+  const elMht = document.getElementById('f-max-history-tokens');
+  if (elMht) elMht.value = mht ? mht[1] : '150000';
+
+  const cp = yaml.match(/^context_pressure:\s*([0-9.]+)/m);
+  const elCp = document.getElementById('f-context-pressure');
+  if (elCp) elCp.value = cp ? cp[1] : '';
+
+  const tbComp = extractLastBlockNamedText(yaml, 'compression');
+  const fce = document.getElementById('f-compression-enabled');
+  const fcl = document.getElementById('f-compression-level');
+  if (tbComp) {
+    const cen = tbComp.match(/enabled:\s*(true|false)/i);
+    if (fce) fce.checked = cen ? cen[1].toLowerCase() === 'true' : true;
+    const lv = tbComp.match(/level:\s*([123])\b/);
+    if (fcl) fcl.value = lv ? lv[1] : '2';
+  } else {
+    if (fce) fce.checked = true;
+    if (fcl) fcl.value = '2';
+  }
+
+  const tbTools = extractLastBlockNamedText(yaml, 'tools');
+  const fsm = document.getElementById('f-schema-mode');
+  if (tbTools && fsm) {
+    const sm = tbTools.match(/schema_mode:\s*['"]?(compact|full|names_only)['"]?/);
+    fsm.value = sm ? sm[1] : 'full';
+    const setToolChk = (id, re) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const m = tbTools.match(re);
+      el.checked = m ? m[1].toLowerCase() === 'true' : false;
+    };
+    setToolChk('f-tools-adaptive', /adaptive_budget:\s*(true|false)/i);
+    setToolChk('f-tools-smart', /smart_truncation:\s*(true|false)/i);
+    setToolChk('f-tools-passthrough', /passthrough:\s*(true|false)/i);
+    setToolChk('f-tools-disabled', /^\s*disabled:\s*(true|false)/im);
+  } else if (fsm) {
+    fsm.value = 'full';
+    ['f-tools-adaptive', 'f-tools-smart', 'f-tools-passthrough', 'f-tools-disabled'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.checked = false;
+    });
+  }
+
+  const tbLog = extractLastBlockNamedText(yaml, 'logging');
+  const fld = document.getElementById('f-log-db');
+  const flf = document.getElementById('f-log-file');
+  if (tbLog) {
+    const db = tbLog.match(/db_enabled:\s*(true|false)/i);
+    const fe = tbLog.match(/file_enabled:\s*(true|false)/i);
+    if (fld) fld.checked = db ? db[1].toLowerCase() === 'true' : false;
+    if (flf) flf.checked = fe ? fe[1].toLowerCase() === 'true' : false;
+  } else {
+    if (fld) fld.checked = false;
+    if (flf) flf.checked = false;
+  }
+
+  const mac = yaml.match(/^max_auto_continue:\s*(\d+)/m);
+  const fmac = document.getElementById('f-max-auto-continue');
+  if (fmac) fmac.value = mac ? mac[1] : '0';
 }
 
 // ── 表单 -> YAML ──
 function formToYaml() {
   let yaml = rawYaml || '';
+  yaml = yaml.replace(/^#?\s*enable_thinking:\s*.*$/mg, '');
+  yaml = yaml.replace(/^#?\s*enable_progressive_truncation:\s*.*$/mg, '');
 
   const set = (key, val) => {
     const re = new RegExp('^(' + key + ':\\s*).*', 'm');
     if (re.test(yaml)) {
       yaml = yaml.replace(re, '$1' + val);
-    } else {
-      yaml += '\n' + key + ': ' + val;
-    }
-  };
-
-  const setBoolLine = (key, val) => {
-    // 取消注释并设置值，或新增
-    const commentedRe = new RegExp('^#\\s*(' + key + ':\\s*).*', 'm');
-    const plainRe     = new RegExp('^(' + key + ':\\s*).*', 'm');
-    if (plainRe.test(yaml)) {
-      yaml = yaml.replace(plainRe, '$1' + val);
-    } else if (commentedRe.test(yaml)) {
-      yaml = yaml.replace(commentedRe, '$1' + val);
     } else {
       yaml += '\n' + key + ': ' + val;
     }
@@ -468,8 +638,6 @@ function formToYaml() {
   const authRaw  = document.getElementById('f-auth-tokens').value.trim();
   const authTokens = authRaw ? authRaw.split('\n').map(s => s.trim()).filter(Boolean) : [];
   const vision  = document.getElementById('f-vision').checked;
-  const thinking = document.getElementById('f-thinking').checked;
-  const truncation = document.getElementById('f-truncation').checked;
   const vmode   = document.getElementById('f-vmode').value;
   const vkey    = document.getElementById('f-vkey').value.trim();
   const vurl    = document.getElementById('f-vurl').value.trim();
@@ -494,9 +662,6 @@ function formToYaml() {
   if (authTokens.length > 0) {
     yaml += '\n\nauth_tokens:\n' + authTokens.map(t => '  - "' + String(t).replace(/"/g, '\\"') + '"').join('\n') + '\n';
   }
-
-  setBoolLine('enable_thinking', String(thinking));
-  setBoolLine('enable_progressive_truncation', String(truncation));
 
   // vision：先去掉所有顶层 vision 块再写一个，避免重复 vision: 时只替换第一段
   yaml = removeAllVisionBlocksText(yaml).replace(/\n+$/, '');
@@ -548,37 +713,7 @@ async function saveCfg() {
     rawYaml = content;
     res = await window.api.saveConfig(content);
   } else {
-    // 用结构化字段保存，主进程用 yaml 库正确写入
-    const port     = document.getElementById('f-port').value;
-    const timeout  = document.getElementById('f-timeout').value;
-    const model    = document.getElementById('f-model').value;
-    const proxy    = document.getElementById('f-proxy').value.trim();
-    const vision   = document.getElementById('f-vision').checked;
-    const thinking = document.getElementById('f-thinking').checked;
-    const truncation = document.getElementById('f-truncation').checked;
-    const vmode    = document.getElementById('f-vmode').value;
-    const vkey     = document.getElementById('f-vkey').value.trim();
-    const vurl     = document.getElementById('f-vurl').value.trim();
-    const vmodel   = document.getElementById('f-vmodel').value.trim();
-    const authRaw  = document.getElementById('f-auth-tokens').value.trim();
-    const authTokens = authRaw ? authRaw.split('\n').map(s => s.trim()).filter(Boolean) : [];
-    const fields = {};
-    if (port)    fields['port']    = parseInt(port);
-    if (timeout) fields['timeout'] = parseInt(timeout);
-    if (model)   fields['cursor_model'] = model;
-    if (proxy)   fields['proxy'] = proxy;
-    else         fields['proxy'] = null;
-    fields['enable_thinking'] = thinking;
-    fields['enable_progressive_truncation'] = truncation;
-    fields['vision.enabled'] = vision;
-    fields['vision.mode']    = vmode === 'api' ? 'api' : 'ocr';
-    if (vmode === 'api') {
-      if (vurl)   fields['vision.base_url'] = vurl;
-      if (vkey)   fields['vision.api_key']  = vkey;
-      if (vmodel) fields['vision.model']    = vmodel;
-    }
-    if (authTokens.length > 0) fields['auth_tokens'] = authTokens;
-    else fields['auth_tokens'] = null;
+    const fields = collectFieldsFromForm();
     res = await window.api.saveConfigFields(fields);
     // 保存后同步 raw-cfg 显示
     const newRaw = await window.api.getConfig();

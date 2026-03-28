@@ -14,7 +14,7 @@
 }
 [data-theme="light"]{
   --bg:#f1f5f9;--bg2:#ffffff;--bg3:#f8fafc;--border:#e2e8f0;
-  --text:#1e293b;--text2:#64748b;--text3:#94a3b8;
+  --text:#0f172a;--text2:#475569;--text3:#64748b;
   --green:#16a34a;--red:#dc2626;--blue:#2563eb;--purple:#7c3aed;
   --btn-green-bg:#dcfce7;--btn-green-hover:#bbf7d0;
   --btn-red-bg:#fee2e2;--btn-red-hover:#fecaca;
@@ -60,6 +60,7 @@ nav{flex:1;padding:8px 0}
 
 /* ── Cards ── */
 .card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:18px;transition:background .2s}
+#page-config .card{padding:20px 20px 18px}
 .card.flex1{flex:1;min-width:0}
 .cards-row{display:flex;gap:14px}
 /* ── Dashboard top layout ── */
@@ -150,16 +151,47 @@ nav{flex:1;padding:8px 0}
 }
 
 /* 本地识别时强制隐藏（避免 .form-grid 的 display:grid 盖过 [hidden]） */
-#vision-api-fields.form-grid{margin-top:4px}
+#vision-api-fields.form-grid{margin-top:6px}
 #vision-api-fields.vision-api--off{display:none !important}
 
 /* ── Config tabs ── */
-.cfg-tabs{display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid var(--border);padding-bottom:0}
-.cfg-tab{padding:7px 16px;background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;font-size:13px;color:var(--text2);transition:all .15s;margin-bottom:-1px}
+.cfg-tabs{display:flex;gap:4px;margin-bottom:14px;border-bottom:1px solid var(--border);padding-bottom:0}
+.cfg-tab{padding:7px 16px;background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;font-size:13px;font-weight:500;color:var(--text2);transition:all .15s;margin-bottom:-1px}
 .cfg-tab:hover{color:var(--text)}
-.cfg-tab.active{color:var(--blue);border-bottom-color:var(--blue)}
+.cfg-tab.active{color:var(--blue);border-bottom-color:var(--blue);font-weight:700}
 .cfg-panel{display:none}
 .cfg-panel.active{display:block}
+
+/* 常用设置内二级 Tab */
+.cfg-simple-subtabs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;padding:10px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:8px}
+.cfg-subtab{padding:7px 16px;background:transparent;border:1px solid transparent;border-radius:6px;cursor:pointer;font-size:12px;font-weight:500;color:var(--text2);transition:background .15s,border-color .15s,color .15s}
+.cfg-subtab:hover{color:var(--text);background:var(--bg3)}
+.cfg-subtab.active{color:var(--blue);background:var(--bg3);border-color:var(--border);font-weight:700}
+.cfg-simple-wrap{min-height:264px}
+.cfg-simple-subpanel{display:none;padding-top:6px;animation:cfgSubFade .12s ease}
+.cfg-simple-subpanel.active{display:block}
+@keyframes cfgSubFade{from{opacity:.65}to{opacity:1}}
+@media (prefers-reduced-motion:reduce){.cfg-simple-subpanel{animation:none}}
+.cfg-subpanel-lead{font-size:13px;font-weight:600;color:var(--text);margin:0 0 14px;padding:0 0 12px;line-height:1.5;border-bottom:1px solid var(--border);letter-spacing:.01em}
+
+/* 常用设置：栅格与区块间距 */
+#panel-simple .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px 18px;margin-bottom:16px}
+#panel-simple .form-grid:last-child{margin-bottom:0}
+#panel-simple .form-group{gap:7px}
+#panel-simple .form-label{font-size:13px;font-weight:700;color:var(--text);letter-spacing:.01em}
+#panel-simple .form-hint{margin-top:4px;line-height:1.5;color:var(--text2);font-size:12px}
+#panel-simple .form-hint code{font-weight:600;color:var(--blue);font-size:11px;padding:2px 5px}
+#panel-simple #f-auth-tokens{line-height:1.55;min-height:5.5em}
+#panel-simple .toggle-list{display:flex;flex-direction:column;gap:10px;margin-bottom:16px}
+#panel-simple .toggle-list:last-child{margin-bottom:0}
+#panel-simple .toggle-row{padding:12px 16px}
+#panel-simple .form-group-logging{gap:8px}
+#panel-simple .form-group-logging > .form-label{margin-bottom:0}
+#panel-simple .checkbox-inline-row{padding:4px 0 6px;gap:18px 24px}
+#panel-simple .section-divider.cfg-subsection{margin:22px 0 14px;padding-bottom:8px;font-size:12px;font-weight:700;color:var(--text);letter-spacing:.04em}
+#panel-simple .toggle-name{font-weight:700;font-size:13px;color:var(--text);letter-spacing:.01em}
+#panel-simple .toggle-desc{margin-top:4px;font-size:11px;font-weight:500;color:var(--text2);font-family:Consolas,'Cascadia Mono',monospace;letter-spacing:.02em}
+#panel-simple #vision-api-fields.form-grid{margin-top:8px}
 
 /* ── Form ── */
 .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:4px}
@@ -176,6 +208,9 @@ textarea.form-input{resize:vertical}
 
 /* ── Section divider ── */
 .section-divider{font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin:18px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.checkbox-inline-row{display:flex;flex-wrap:wrap;gap:16px 20px;padding:6px 0 2px}
+.chk-inline{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--text);cursor:pointer}
+.chk-inline input{accent-color:var(--blue)}
 
 /* ── Toggle list ── */
 .toggle-list{display:flex;flex-direction:column;gap:8px}
@@ -194,8 +229,8 @@ textarea.form-input{resize:vertical}
 #raw-cfg:focus{border-color:var(--blue)}
 
 /* ── Save row ── */
-.save-row{display:flex;align-items:center;gap:10px;margin-top:16px;padding-top:14px;border-top:1px solid var(--border)}
-#save-tip{font-size:12px;color:var(--text2)}
+.save-row{display:flex;align-items:center;gap:12px;margin-top:18px;padding-top:16px;border-top:1px solid var(--border)}
+#save-tip{font-size:12px;font-weight:500;color:var(--text2)}
 #save-tip.ok{color:var(--green)}#save-tip.err{color:var(--red)}
 
 /* ── About ── */
@@ -222,7 +257,7 @@ textarea.form-input{resize:vertical}
 /* ── Animations ── */
 @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 
-/* ���� �汾����ҳ ���� */
+/* 版本更新页表格 */
 .rel-table{width:100%;border-collapse:collapse;font-size:13px}
 .rel-table th{text-align:left;padding:8px 12px;color:var(--text2);font-weight:500;border-bottom:1px solid var(--border);font-size:12px}
 .rel-table td{padding:10px 12px;border-bottom:1px solid var(--border2);vertical-align:middle}
