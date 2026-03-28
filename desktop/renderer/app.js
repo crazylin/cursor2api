@@ -6,6 +6,16 @@ let activeTab = 'simple';
 /** 常用设置内子 Tab：conn | vision | ctx | tools */
 let activeSimpleSub = 'conn';
 
+/**
+ * 与仓库根目录 config.yaml.example 一致的推荐展示值（占位、无对应键时的表单预填）。
+ * max_history_tokens：示例推荐 120000；未写该键时程序内置 150000（见表单说明）。
+ */
+const CFG_EXAMPLE_DEFAULTS = {
+  maxHistoryTokens: '120000',
+  contextPressurePlaceholder: '1.35',
+  schemaMode: 'compact'
+};
+
 /** 日志页子视图：console = 运行日志（进程输出），viewer = 请求日志（内嵌 /logs） */
 let logViewMode = 'console';
 let lastLogsEmbedUrl = '';
@@ -556,7 +566,7 @@ function yamlToForm(yaml) {
 
   const mht = yaml.match(/^max_history_tokens:\s*(-?\d+)/m);
   const elMht = document.getElementById('f-max-history-tokens');
-  if (elMht) elMht.value = mht ? mht[1] : '150000';
+  if (elMht) elMht.value = mht ? mht[1] : CFG_EXAMPLE_DEFAULTS.maxHistoryTokens;
 
   const cp = yaml.match(/^context_pressure:\s*([0-9.]+)/m);
   const elCp = document.getElementById('f-context-pressure');
@@ -579,7 +589,7 @@ function yamlToForm(yaml) {
   const fsm = document.getElementById('f-schema-mode');
   if (tbTools && fsm) {
     const sm = tbTools.match(/schema_mode:\s*['"]?(compact|full|names_only)['"]?/);
-    fsm.value = sm ? sm[1] : 'full';
+    fsm.value = sm ? sm[1] : CFG_EXAMPLE_DEFAULTS.schemaMode;
     const setToolChk = (id, re) => {
       const el = document.getElementById(id);
       if (!el) return;
@@ -591,7 +601,7 @@ function yamlToForm(yaml) {
     setToolChk('f-tools-passthrough', /passthrough:\s*(true|false)/i);
     setToolChk('f-tools-disabled', /^\s*disabled:\s*(true|false)/im);
   } else if (fsm) {
-    fsm.value = 'full';
+    fsm.value = CFG_EXAMPLE_DEFAULTS.schemaMode;
     ['f-tools-adaptive', 'f-tools-smart', 'f-tools-passthrough', 'f-tools-disabled'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.checked = false;

@@ -187,7 +187,29 @@ function createMainWindow() {
 // ── IPC ──
 ipcMain.handle('get-status',  () => svcRunning);
 ipcMain.handle('get-logs',    () => logs);
-const DEFAULT_CONFIG_DISPLAY = 'port: 3010\ntimeout: 120\ncursor_model: "anthropic/claude-sonnet-4.6"\nvision:\n  enabled: true\n  mode: \'ocr\'\n';
+/** 无 config.yaml 时展示：与 config.yaml.example 骨架一致（推荐值） */
+const DEFAULT_CONFIG_DISPLAY = [
+  'port: 3010',
+  'timeout: 120',
+  'cursor_model: "anthropic/claude-sonnet-4.6"',
+  'max_auto_continue: 0',
+  'max_history_tokens: 120000',
+  '',
+  'thinking:',
+  '  enabled: false',
+  '',
+  'compression:',
+  '  enabled: true',
+  '  level: 2',
+  '',
+  'tools:',
+  "  schema_mode: 'compact'",
+  '',
+  'vision:',
+  '  enabled: true',
+  "  mode: 'ocr'",
+  ''
+].join('\n');
 ipcMain.handle('get-config',  () => {
   if (!fs.existsSync(CONFIG_PATH)) return DEFAULT_CONFIG_DISPLAY;
   const rawText = fs.readFileSync(CONFIG_PATH, 'utf-8');
