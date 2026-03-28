@@ -15,7 +15,6 @@ const APP_ROOT = isDev
   ? path.resolve(__dirname, '..')
   : path.join(process.resourcesPath, 'app');
 
-const USER_DATA = app.getPath('userData');
 // 配置文件和服务保持同一路径（服务 cwd=APP_ROOT，读取 ./config.yaml）
 const CONFIG_PATH = path.join(APP_ROOT, 'config.yaml');
 
@@ -504,7 +503,8 @@ ipcMain.handle('preview-config-fields', (_e, payload) => {
     return '';
   }
 });
-ipcMain.handle('open-config-folder', () => shell.openPath(USER_DATA));
+/** 打开 config.yaml 所在目录（与读写 CONFIG_PATH 一致），勿用 userData — 二者不是同一路径 */
+ipcMain.handle('open-config-folder', () => shell.openPath(path.dirname(CONFIG_PATH)));
 ipcMain.handle('open-in-browser',    () => shell.openExternal('http://localhost:' + readPort()));
 ipcMain.handle('open-external-url', async (_e, url) => {
   const u = String(url || '').trim();

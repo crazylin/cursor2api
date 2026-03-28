@@ -13,6 +13,7 @@
 - **子 Tab**：连接、Vision、上下文、工具与日志分区，减少单页堆砌
 - **交互**：切换「原始 YAML」时由主进程 `preview-config-fields` 生成合并预览；Vision 选项紧贴开关
 - **版式**：浅色主题对比度、表单标签字重、子 Tab 选中强调色、区块与说明间距
+- **修复「打开目录」**：改为打开 `config.yaml` 所在目录（与 `APP_ROOT` 一致），不再误开 Electron `userData`
 
 ---
 
