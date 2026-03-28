@@ -15,6 +15,7 @@
 - **版式**：浅色主题对比度、表单标签字重、子 Tab 选中强调色、区块与说明间距
 - **修复「打开目录」**：改为打开 `config.yaml` 所在目录（与 `APP_ROOT` 一致），不再误开 Electron `userData`
 - **默认值与官方示例对齐**：表单占位与无键预填（如 `max_history_tokens` 120000、`schema_mode` compact、`context_pressure` 1.35 等）、说明文案引用 `config.yaml.example`；无 `config.yaml` 时默认展示 YAML 骨架与示例一致
+- **修复托盘图标不显示**：`tray.png` 被 `.gitignore` 忽略且仓库仅有 `icon.ico` 时原先回退为空图；改为优先 `tray.png` → `icon.png` → `icon.icns`/`icon.ico`，并允许提交 `desktop/assets/**/*.png`
 
 ---
 

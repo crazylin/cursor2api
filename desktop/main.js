@@ -130,12 +130,47 @@ function addLog(line) {
   mainWindow && mainWindow.webContents.send('log', entry);
 }
 
+/** 托盘/窗口图标：优先专用 tray.png，否则 icon.png；Windows 可用 icon.ico（仓库常见仅有 ico，因根目录 .gitignore 忽略 *.png） */
+function loadAssetNativeImage() {
+  const assets = path.join(__dirname, 'assets');
+  const names = ['tray.png', 'icon.png'];
+  if (process.platform === 'darwin') names.push('icon.icns');
+  names.push('icon.ico');
+  for (let i = 0; i < names.length; i++) {
+    const p = path.join(assets, names[i]);
+    if (!fs.existsSync(p)) continue;
+    try {
+      const img = nativeImage.createFromPath(p);
+      if (!img.isEmpty()) return img;
+    } catch (_) { /* 尝试下一项 */ }
+  }
+  return null;
+}
+
+/** 1×1 PNG，仅作极端兜底（正常应能加载 icon.ico） */
+function fallbackTrayImage() {
+  try {
+    const buf = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmWQQAAAABJRU5ErkJggg==',
+      'base64'
+    );
+    return nativeImage.createFromBuffer(buf);
+  } catch (_) {
+    return null;
+  }
+}
+
 // ── 托盘 ──
 function createTray() {
-  const iconPath = path.join(__dirname, 'assets', 'tray.png');
-  const icon = fs.existsSync(iconPath)
-    ? nativeImage.createFromPath(iconPath)
-    : nativeImage.createEmpty();
+  let icon = loadAssetNativeImage();
+  if (!icon || icon.isEmpty()) {
+    console.warn('[Tray] assets 下无 tray.png/icon.png/icon.ico，使用占位图；请将托盘图放入 desktop/assets/');
+    icon = fallbackTrayImage();
+  }
+  if (!icon || icon.isEmpty()) {
+    console.error('[Tray] 无法创建托盘图标');
+    return;
+  }
   tray = new Tray(icon);
   updateTray();
   tray.on('click', () => {
@@ -163,10 +198,11 @@ function updateTray() {
 
 // ── 主窗口 ──
 function createMainWindow() {
+  const winIcon = loadAssetNativeImage();
   mainWindow = new BrowserWindow({
     width: 920, height: 660, minWidth: 720, minHeight: 500,
     title: 'Cursor2API 管理面板',
-    icon: path.join(__dirname, 'assets', 'icon.png'),
+    icon: winIcon && !winIcon.isEmpty() ? winIcon : undefined,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,

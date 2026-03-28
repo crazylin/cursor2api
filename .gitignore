@@ -41,6 +41,8 @@ config.yaml
 
 # Screenshots (dev artifacts)
 *.png
+# 桌面端托盘/窗口图标（需纳入版本库）
+!desktop/assets/**/*.png
 # Test result artifacts
 test/*-results*.json
 test/ctf-*-results.json
