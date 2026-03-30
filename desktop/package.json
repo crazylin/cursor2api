@@ -83,10 +83,6 @@
       {
         "from": "../chi_sim.traineddata",
         "to": "app/chi_sim.traineddata"
-      },
-      {
-        "from": "node-bin/node.exe",
-        "to": "node/node.exe"
       }
     ],
     "win": {
@@ -98,15 +94,21 @@
           ]
         }
       ],
-      "icon": "assets/icon.ico"
+      "icon": "assets/icon.ico",
+      "extraResources": [
+        {
+          "from": "node-bin/node.exe",
+          "to": "node/node.exe"
+        }
+      ]
     },
     "mac": {
       "target": "dmg",
-      "icon": "assets/icon.icns"
+      "icon": "assets/icon.ico"
     },
     "linux": {
       "target": "AppImage",
-      "icon": "assets/icon.png"
+      "icon": "assets/icon.ico"
     },
     "nsis": {
       "oneClick": false,

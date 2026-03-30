@@ -212,13 +212,9 @@ jobs:
         shell: bash
         run: |
           mkdir -p staging
-          for f in merge/win/dist.zip; do [ -f "$f" ] && cp -v "$f" staging/; done
-          for f in merge/win/desktop/dist/*.exe merge/win/desktop/dist/*.blockmap; do
-            [ -f "$f" ] && cp -v "$f" staging/
-          done
-          for f in merge/mac/desktop/dist/*.dmg merge/mac/desktop/dist/*.blockmap; do
-            [ -f "$f" ] && cp -v "$f" staging/
-          done
+          [ -f merge/win/dist.zip ] && cp -v merge/win/dist.zip staging/
+          find merge/win -type f \( -name '*.exe' -o -name '*.blockmap' \) -exec cp -v {} staging/ \;
+          find merge/mac -type f \( -name '*.dmg' -o -name '*.blockmap' \) -exec cp -v {} staging/ \;
           echo "Staged:"
           ls -la staging/
 
@@ -229,7 +225,8 @@ jobs:
           name: ${{ steps.version.outputs.tag }}
           draft: false
           prerelease: false
-          allowUpdates: true
+          # softprops/action-gh-release@v2 无 allowUpdates；用 overwrite_files 覆盖同名资产
+          overwrite_files: true
           fail_on_unmatched_files: false
           files: |
             staging/*
