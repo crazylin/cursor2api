@@ -16,6 +16,47 @@ const CFG_EXAMPLE_DEFAULTS = {
   schemaMode: 'compact'
 };
 
+/** 仅将「上下文」「工具与日志」填为 config.yaml.example 推荐值（不改动连接/Vision，不自动保存） */
+function applyRecommendedConfig() {
+  const tm = document.getElementById('f-thinking-mode');
+  if (tm) tm.value = 'off';
+  const elMht = document.getElementById('f-max-history-tokens');
+  if (elMht) elMht.value = CFG_EXAMPLE_DEFAULTS.maxHistoryTokens;
+  const elCp = document.getElementById('f-context-pressure');
+  if (elCp) elCp.value = CFG_EXAMPLE_DEFAULTS.contextPressurePlaceholder;
+  const fce = document.getElementById('f-compression-enabled');
+  if (fce) fce.checked = true;
+  const fcl = document.getElementById('f-compression-level');
+  if (fcl) fcl.value = '2';
+
+  const fsm = document.getElementById('f-schema-mode');
+  if (fsm) fsm.value = CFG_EXAMPLE_DEFAULTS.schemaMode;
+  const fld = document.getElementById('f-log-db');
+  const flf = document.getElementById('f-log-file');
+  if (fld) fld.checked = false;
+  if (flf) flf.checked = false;
+  const fmac = document.getElementById('f-max-auto-continue');
+  if (fmac) fmac.value = '0';
+  const fta = document.getElementById('f-tools-adaptive');
+  const fts = document.getElementById('f-tools-smart');
+  if (fta) fta.checked = true;
+  if (fts) fts.checked = true;
+  ['f-tools-passthrough', 'f-tools-disabled'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.checked = false;
+  });
+
+  const tip = document.getElementById('save-tip');
+  if (tip) {
+    tip.className = 'ok';
+    tip.textContent = '已填入「上下文」「工具与日志」推荐值，请点击「保存配置」并重启服务生效';
+    setTimeout(() => {
+      tip.className = '';
+      tip.textContent = '保存后需重启服务生效';
+    }, 5000);
+  }
+}
+
 /** 日志页子视图：console = 运行日志（进程输出），viewer = 请求日志（内嵌 /logs） */
 let logViewMode = 'console';
 let lastLogsEmbedUrl = '';
