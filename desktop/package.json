@@ -104,11 +104,11 @@
     },
     "mac": {
       "target": "dmg",
-      "icon": "assets/icon.ico"
+      "icon": "assets/icon-mac-512.png"
     },
     "linux": {
       "target": "AppImage",
-      "icon": "assets/icon.ico"
+      "icon": "assets/icon-mac-512.png"
     },
     "nsis": {
       "oneClick": false,

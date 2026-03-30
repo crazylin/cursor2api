@@ -41,6 +41,7 @@ config.yaml
 
 # Screenshots (dev artifacts)
 *.png
+!desktop/assets/**/*.png
 # Test result artifacts
 test/*-results*.json
 test/ctf-*-results.json

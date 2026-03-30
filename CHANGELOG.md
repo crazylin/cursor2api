@@ -8,7 +8,7 @@
 - **推荐工具开关**：一键勾选「工具自适应历史预算」「工具结果智能截断」（`adaptive_budget` / `smart_truncation`），与 `config.yaml.example` 注释建议一致
 - **CI 桌面发布**：`build-desktop` 并行构建 Windows 与 macOS，汇总 `release` 任务上传同一 GitHub Release；macOS 产出 **Intel (x64)** 与 **Apple 芯片 (arm64)** 双架构 DMG（`electron-builder --mac --x64 --arm64`）
 - **版本更新页**：按本机系统筛选安装包（Windows `.exe` / macOS 按 `process.arch` 匹配 `-x64`/`-arm64` 等文件名）；表头区分 macOS Intel / Apple 芯片；热更新在 macOS/Linux 使用系统 `unzip` 解压 `dist.zip`
-- **修复 CI 无 mac 产物**：仓库仅有 `assets/icon.ico` 时原先 `mac.icon` 指向不存在的 `icon.icns` 导致 `build-mac` 失败；改为使用 `icon.ico`（由 electron-builder 转换）。`node-bin/node.exe` 仅纳入 **Windows** `extraResources`，避免 mac 打包因缺少该文件失败
+- **修复 CI 无 mac 产物**：`node-bin/node.exe` 仅纳入 **Windows** `extraResources`；`release` 用 `find merge/mac` 收集 DMG。macOS 图标需 ≥512×512，已增加 `assets/icon-mac-512.png` 供 `mac`/`linux` 构建；`icon.ico` 仍用于 Windows
 
 **2026-03-28**
 
