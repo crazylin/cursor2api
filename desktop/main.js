@@ -253,6 +253,8 @@ ipcMain.handle('get-config',  () => {
 });
 ipcMain.handle('get-port',    () => readPort());
 ipcMain.handle('get-version', () => SVC_VERSION);
+ipcMain.handle('get-platform', () => process.platform);
+ipcMain.handle('get-runtime-arch', () => process.arch);
 
 /** 桌面内嵌全链路日志：127.0.0.1 + 当前 config.yaml 中的 port / 首个 auth_token */
 ipcMain.handle('get-logs-embed-url', () => {
@@ -594,6 +596,45 @@ function httpsGet(url, opts = {}) {
   });
 }
 
+/** dist.zip 根目录含 package.json 与 dist/；先删 APP_ROOT/dist 再解压到 APP_ROOT */
+function extractDistZipToAppRoot(tmpZip, dstRoot, cb) {
+  const distDir = path.join(dstRoot, 'dist');
+  if (process.platform === 'win32') {
+    const z = tmpZip.replace(/'/g, "''").replace(/\\/g, '/');
+    const dst = dstRoot.replace(/'/g, "''").replace(/\\/g, '/');
+    const psCmd = [
+      `$z = '${z}'`,
+      `$dst = '${dst}'`,
+      `$distDir = Join-Path $dst 'dist'`,
+      `if (Test-Path $distDir) { Remove-Item $distDir -Recurse -Force }`,
+      `Expand-Archive -Force -Path $z -DestinationPath $dst`,
+      `Write-Host 'OK'`
+    ].join('; ');
+    const ps = spawn('powershell.exe', ['-NoProfile', '-Command', psCmd], { stdio: 'pipe' });
+    let psOut = '', psErr = '';
+    ps.stdout.on('data', d => { psOut += d.toString(); });
+    ps.stderr.on('data', d => { psErr += d.toString(); });
+    ps.on('close', code => {
+      cb(code === 0, code === 0 ? '' : (psErr || psOut || 'powershell exit ' + code));
+    });
+    ps.on('error', e => cb(false, e.message));
+    return;
+  }
+  try {
+    if (fs.existsSync(distDir)) fs.rmSync(distDir, { recursive: true, force: true });
+  } catch (e) {
+    cb(false, 'rm dist: ' + e.message);
+    return;
+  }
+  const uz = spawn('unzip', ['-o', '-q', tmpZip, '-d', dstRoot], { stdio: 'pipe' });
+  let err = '';
+  uz.stderr.on('data', d => { err += d.toString(); });
+  uz.on('close', code => {
+    cb(code === 0, code === 0 ? '' : (err.trim() || 'unzip exit ' + code));
+  });
+  uz.on('error', e => cb(false, e.message));
+}
+
 ipcMain.handle('get-releases', async () => {
   try {
     const r = await httpsGet('https://api.github.com/repos/crazylin/cursor2api/releases?per_page=20');
@@ -638,22 +679,8 @@ ipcMain.handle('hot-update', async (_e, distZipUrl) => {
       });
       file.on('finish', () => {
         addLog('[UPDATE] 下载完成 (' + Math.round(received/1024) + ' KB)，正在解压替换 dist/...');
-        // dist.zip 结构: package.json + dist/xxx.js
-        // 解压目标必须是 APP_ROOT（不是 APP_ROOT/dist）
-        const psCmd = [
-          `$z = '${tmpZip}'`,
-          `$dst = '${APP_ROOT.replace(/\\/g, '\\\\')}'`,
-          `$distDir = Join-Path $dst 'dist'`,
-          `if (Test-Path $distDir) { Remove-Item $distDir -Recurse -Force }`,
-          `Expand-Archive -Force -Path $z -DestinationPath $dst`,
-          `Write-Host 'OK'`
-        ].join('; ');
-        const ps = spawn('powershell.exe', ['-NoProfile', '-Command', psCmd], { stdio: 'pipe' });
-        let psOut = '', psErr = '';
-        ps.stdout.on('data', d => psOut += d.toString());
-        ps.stderr.on('data', d => psErr += d.toString());
-        ps.on('close', code => {
-          if (code === 0) {
+        extractDistZipToAppRoot(tmpZip, APP_ROOT, (ok, errMsg) => {
+          if (ok) {
             const newVer = readVersion();
             addLog('[UPDATE] 解压成功 (v' + newVer + ')，正在重启服务...');
             mainWindow && mainWindow.webContents.send('download-progress', 100);
@@ -661,8 +688,8 @@ ipcMain.handle('hot-update', async (_e, distZipUrl) => {
             stopService();
             setTimeout(() => { startService(); resolve({ ok: true, version: newVer }); }, 800);
           } else {
-            addLog('[UPDATE] 解压失败: ' + (psErr || psOut));
-            resolve({ ok: false, error: 'unzip failed: ' + (psErr || psOut) });
+            addLog('[UPDATE] 解压失败: ' + errMsg);
+            resolve({ ok: false, error: 'unzip failed: ' + errMsg });
           }
         });
       });

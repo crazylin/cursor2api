@@ -11,7 +11,7 @@
     "dev": "electron . --dev",
     "start": "electron .",
     "build:win": "electron-builder --win --x64 --publish never",
-    "build:mac": "electron-builder --mac",
+    "build:mac": "electron-builder --mac --x64 --arm64 --publish never",
     "build:linux": "electron-builder --linux"
   },
   "dependencies": {

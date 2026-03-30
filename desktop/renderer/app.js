@@ -789,8 +789,57 @@ async function saveCfg() {
 // ── 版本更新 ──
 let _releases = null;
 let _currentVer = '';
+/** win32 | darwin | linux */
+let _platform = 'win32';
+/** x64 | arm64 | …（Node process.arch，用于 mac 多架构 DMG 筛选） */
+let _arch = 'x64';
+
+/** macOS 安装包文件名是否匹配当前 CPU（electron-builder：*-arm64.dmg / *-x64.dmg；无架构后缀视为通用/旧版） */
+function macAssetMatchesArch(name) {
+  const n = name.toLowerCase();
+  if (n === 'dist.zip') return false;
+  const isDmg = /\.dmg$/i.test(name);
+  const isMacZip = /\.zip$/i.test(name) && /mac/.test(n);
+  if (!isDmg && !isMacZip) return false;
+  const taggedArm = /-(arm64|aarch64)(\.dmg|\.zip)$/i.test(name) || /_(arm64|aarch64)(\.dmg|\.zip)$/i.test(name);
+  const taggedX64 = /-x64(\.dmg|\.zip)$/i.test(name) || /_x64(\.dmg|\.zip)$/i.test(name);
+  if (!taggedArm && !taggedX64) return true;
+  if (_arch === 'arm64') return taggedArm;
+  if (_arch === 'x64') return taggedX64;
+  return true;
+}
+
+function installerAssetsForPlatform(assets) {
+  const a = assets || [];
+  if (_platform === 'darwin') {
+    return a.filter(x => macAssetMatchesArch(x.name));
+  }
+  if (_platform === 'linux') {
+    return a.filter(x => /\.AppImage$/i.test(x.name) || /\.deb$/i.test(x.name));
+  }
+  return a.filter(x => /\.exe$/i.test(x.name));
+}
+
+function pkgColumnLabel() {
+  if (_platform === 'darwin') {
+    if (_arch === 'arm64') return '安装包（本机 macOS · Apple 芯片）';
+    if (_arch === 'x64') return '安装包（本机 macOS · Intel）';
+    return '安装包（本机 macOS）';
+  }
+  if (_platform === 'linux') return '安装包（本机 Linux）';
+  return '安装包（本机 Windows）';
+}
 
 async function initUpdate() {
+  try {
+    _platform = await window.api.getPlatform();
+  } catch (_) { _platform = 'win32'; }
+  try {
+    _arch = await window.api.getRuntimeArch();
+  } catch (_) { _arch = 'x64'; }
+  const thPkg = document.getElementById('u-th-pkg');
+  if (thPkg) thPkg.textContent = pkgColumnLabel();
+
   const ver = await window.api.getVersion();
   _currentVer = String(ver || '').replace(/^v/i, '');
   const el = document.getElementById('u-current');
@@ -852,14 +901,14 @@ async function loadReleases() {
   }
 
   data.forEach(rel => {
-    const exeAssets = (rel.assets || []).filter(a => a.name.endsWith('.exe'));
+    const instAssets = installerAssetsForPlatform(rel.assets || []);
     const date = rel.published_at ? rel.published_at.slice(0,10) : '--';
     const isCurrent = stripVer(rel.tag) === stripVer(_currentVer);
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td><span class="rel-tag${isCurrent ? ' rel-tag--current' : ''}">${rel.tag}</span>${isCurrent ? ' <span class="badge">当前</span>' : ''}</td>
       <td style="color:var(--text2);font-size:12px">${date}</td>
-      <td style="font-size:12px;color:var(--text2)">${exeAssets.length ? exeAssets.map(a => a.name).join('<br>') : '暂无安装包'}</td>
+      <td style="font-size:12px;color:var(--text2)">${instAssets.length ? instAssets.map(a => a.name).join('<br>') : '暂无本机安装包'}</td>
       <td>
         ${(() => {
           const distAsset = (rel.assets || []).find(a => a.name === 'dist.zip');
@@ -868,10 +917,10 @@ async function loadReleases() {
           const newer = isNewer(rel.tag, 'v' + curVer);
           const btns = [];
           if (distAsset && newer) {
-            btns.push(`<button class="btn btn-green btn-sm" onclick="doHotUpdate('${distAsset.url}')" title="只替换服务逻辑，无需重装">⬆ 热更新</button>`);
+            btns.push(`<button class="btn btn-green btn-sm" onclick='doHotUpdate(${JSON.stringify(distAsset.url)})' title="只替换服务逻辑（dist.zip），无需重装">⬆ 热更新</button>`);
           }
-          if (exeAssets.length && newer) {
-            btns.push(...exeAssets.map(a => `<button class="btn btn-gray btn-sm" onclick="doDownload('${a.url}','${a.name}')" title="下载完整安装包重新安装">完整安装</button>`));
+          if (instAssets.length && newer) {
+            btns.push(...instAssets.map(a => `<button class="btn btn-gray btn-sm" onclick='doDownload(${JSON.stringify(a.url)}, ${JSON.stringify(a.name)})' title="下载本机完整安装包">完整安装</button>`));
           }
           if (!newer && !isCurrent) btns.push('<span style="color:var(--text3);font-size:12px">旧版本</span>');
           if (isCurrent) btns.push('<span style="color:var(--blue);font-size:12px">当前版本</span>');

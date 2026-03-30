@@ -6,6 +6,8 @@
 
 - **「使用推荐配置」**：仅填充「上下文」「工具与日志」tab，不再改动连接与 Vision；按钮 `title` 与成功提示文案已同步说明范围
 - **推荐工具开关**：一键勾选「工具自适应历史预算」「工具结果智能截断」（`adaptive_budget` / `smart_truncation`），与 `config.yaml.example` 注释建议一致
+- **CI 桌面发布**：`build-desktop` 并行构建 Windows 与 macOS，汇总 `release` 任务上传同一 GitHub Release；macOS 产出 **Intel (x64)** 与 **Apple 芯片 (arm64)** 双架构 DMG（`electron-builder --mac --x64 --arm64`）
+- **版本更新页**：按本机系统筛选安装包（Windows `.exe` / macOS 按 `process.arch` 匹配 `-x64`/`-arm64` 等文件名）；表头区分 macOS Intel / Apple 芯片；热更新在 macOS/Linux 使用系统 `unzip` 解压 `dist.zip`
 
 **2026-03-28**
 

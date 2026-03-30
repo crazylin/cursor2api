@@ -7,6 +7,10 @@ contextBridge.exposeInMainWorld('api', {
   getConfig:  () => ipcRenderer.invoke('get-config'),
   getPort:    () => ipcRenderer.invoke('get-port'),
   getVersion: () => ipcRenderer.invoke('get-version'),
+  /** win32 | darwin | linux — 用于更新页筛选本机安装包 */
+  getPlatform: () => ipcRenderer.invoke('get-platform'),
+  /** x64 | arm64 | … — 与安装包文件名中的架构后缀对应 */
+  getRuntimeArch: () => ipcRenderer.invoke('get-runtime-arch'),
   /** 本机全链路日志页 URL（127.0.0.1:port/logs，有 auth_tokens 时带首个 token） */
   getLogsEmbedUrl: () => ipcRenderer.invoke('get-logs-embed-url'),
 

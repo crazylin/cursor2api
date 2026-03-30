@@ -11,6 +11,9 @@ on:
         required: false
         default: ''
 
+permissions:
+  contents: write
+
 jobs:
   build-win:
     runs-on: windows-latest
@@ -32,7 +35,6 @@ jobs:
       - name: Build TypeScript
         run: npm run build
 
-      # 去掉 typescript/tsx/@types 等，再打 node_modules 进安装包，可明显缩小体积
       - name: Prune root devDependencies (slimmer bundled node_modules)
         run: npm prune --omit=dev
 
@@ -87,24 +89,6 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npm run build:win
 
-      - name: Get version & tag
-        id: version
-        shell: pwsh
-        run: |
-          $pkg_ver = (Get-Content package.json | ConvertFrom-Json).version
-          $input_tag = '${{ github.event.inputs.tag }}'
-          $push_tag  = '${{ github.ref_name }}'
-          if ($push_tag -match '^v') {
-            $tag = $push_tag
-          } elseif ($input_tag -ne '') {
-            $tag = $input_tag
-          } else {
-            $tag = "v$pkg_ver"
-          }
-          echo "tag=$tag" >> $env:GITHUB_OUTPUT
-          echo "version=$pkg_ver" >> $env:GITHUB_OUTPUT
-          echo "Using tag: $tag"
-
       - name: Package dist.zip
         shell: pwsh
         run: |
@@ -112,16 +96,131 @@ jobs:
           $zipPath = [System.IO.Path]::GetFullPath('dist.zip')
           if (Test-Path $zipPath) { Remove-Item $zipPath }
           $zip = [System.IO.Compression.ZipFile]::Open($zipPath, 'Create')
-          # 打包 package.json 到根目录
           [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, 'package.json', 'package.json') | Out-Null
-          # 打包 dist/ 目录下所有文件，保留 dist/ 前缀
           Get-ChildItem -Path dist -Recurse -File | ForEach-Object {
             $entryName = 'dist/' + $_.FullName.Substring((Get-Location).Path.Length + 6).Replace('\','/')
             [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, $_.FullName, $entryName) | Out-Null
           }
           $zip.Dispose()
-          Write-Host "dist.zip entries:"
-          [System.IO.Compression.ZipFile]::OpenRead($zipPath).Entries | Select-Object FullName
+          Write-Host "dist.zip ready"
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-win
+          if-no-files-found: error
+          path: |
+            dist.zip
+            desktop/dist/*.exe
+            desktop/dist/*.blockmap
+
+  build-mac:
+    runs-on: macos-latest
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Build TypeScript
+        run: npm run build
+
+      - name: Prune root devDependencies (slimmer bundled node_modules)
+        run: npm prune --omit=dev
+
+      - name: Sync desktop version from source
+        run: |
+          SRC=$(node -p "require('./package.json').version")
+          node -e "const fs=require('fs');const p=require('./desktop/package.json');p.version=process.argv[1];fs.writeFileSync('desktop/package.json',JSON.stringify(p,null,2)+'\n');" "$SRC"
+          echo "Desktop version synced to: $SRC"
+
+      - name: Install desktop dependencies
+        working-directory: desktop
+        run: npm ci
+
+      - name: Create default config.yaml if missing
+        run: |
+          if [ ! -f config.yaml ]; then echo 'port: 3010' > config.yaml && echo 'Created default config.yaml'; fi
+
+      - name: Download Tesseract traineddata
+        run: |
+          curl -fsSL "https://github.com/tesseract-ocr/tessdata_fast/raw/main/eng.traineddata" -o eng.traineddata
+          curl -fsSL "https://github.com/tesseract-ocr/tessdata_fast/raw/main/chi_sim.traineddata" -o chi_sim.traineddata
+          ls -la eng.traineddata chi_sim.traineddata
+
+      - name: Build macOS installer
+        working-directory: desktop
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run build:mac
+
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-mac
+          if-no-files-found: error
+          path: |
+            desktop/dist/*.dmg
+            desktop/dist/*.blockmap
+
+  release:
+    needs: [build-win, build-mac]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve release tag
+        id: version
+        run: |
+          PKG_VER=$(node -p "require('./package.json').version")
+          INPUT_TAG="${{ github.event.inputs.tag }}"
+          PUSH_TAG="${{ github.ref_name }}"
+          if [[ "$PUSH_TAG" == v* ]]; then TAG="$PUSH_TAG"
+          elif [[ -n "$INPUT_TAG" ]]; then TAG="$INPUT_TAG"
+          else TAG="v${PKG_VER}"; fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$PKG_VER" >> "$GITHUB_OUTPUT"
+          echo "Using tag: $TAG"
+
+      - name: Download Windows artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: desktop-win
+          path: merge/win
+
+      - name: Download macOS artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: desktop-mac
+          path: merge/mac
+
+      - name: Stage assets for GitHub Release
+        shell: bash
+        run: |
+          mkdir -p staging
+          for f in merge/win/dist.zip; do [ -f "$f" ] && cp -v "$f" staging/; done
+          for f in merge/win/desktop/dist/*.exe merge/win/desktop/dist/*.blockmap; do
+            [ -f "$f" ] && cp -v "$f" staging/
+          done
+          for f in merge/mac/desktop/dist/*.dmg merge/mac/desktop/dist/*.blockmap; do
+            [ -f "$f" ] && cp -v "$f" staging/
+          done
+          echo "Staged:"
+          ls -la staging/
 
       - name: Create or update Release and upload assets
         uses: softprops/action-gh-release@v2
@@ -130,9 +229,9 @@ jobs:
           name: ${{ steps.version.outputs.tag }}
           draft: false
           prerelease: false
+          allowUpdates: true
+          fail_on_unmatched_files: false
           files: |
-            desktop/dist/Cursor2API Setup *.exe
-            desktop/dist/*.blockmap
-            dist.zip
+            staging/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
